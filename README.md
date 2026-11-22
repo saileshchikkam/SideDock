@@ -33,7 +33,7 @@ python -m unittest discover -s tests
 python -m sidedock
 ```
 
-Optional Python-install startup toggle: `python setup_autostart.py`. This launches the installed module using pythonw if available. An executable installer and public release are planned separately.
+Use the tray menu’s **Start with Windows** toggle to register the current executable or Python installation for the current user. The optional `python setup_autostart.py` helper toggles the same setting. Move the portable executable to its permanent location before enabling startup; Windows may independently disable startup apps.
 
 ## Tray and monitors
 
@@ -42,3 +42,17 @@ The notification-area icon opens the dock, pauses automatic capture, toggles glo
 ## Visual identity
 
 SideDock uses a restrained monochrome palette in Deep Dark and Dark, and follows the system accent in Windows mode. Cards show content types, accessible favorite/remove actions, and copy feedback. Quick-Paste follows the active theme and displays an eight-second countdown. The application and tray share a scalable, locally drawn icon.
+
+## Build the portable Windows executable
+
+On Windows with Python 3.12:
+
+```powershell
+python -m pip install -e . -r requirements-build.txt
+python -m unittest discover -s tests -v
+python scripts/build_windows.py
+```
+
+The build produces `dist/SideDock.exe` (no Python installation required on the destination machine) and `dist/SHA256SUMS.txt`. It includes the application icon and Windows version information and runs an isolated packaged smoke test. Compare the checksum with `Get-FileHash .\dist\SideDock.exe -Algorithm SHA256` before distributing. The Windows executable is unsigned; Windows may display a trust warning. Native interactive testing is still needed before a stable release.
+
+GitHub Actions uploads the executable and checksum as a build artifact after successful checks; it does not publish releases automatically.

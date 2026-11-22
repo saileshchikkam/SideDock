@@ -1,0 +1,2 @@
+# Build tooling only; runtime dependencies come from pyproject.toml.
+PyInstaller>=6.10,<7

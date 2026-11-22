@@ -47,6 +47,8 @@ from PySide6.QtWidgets import (
 )
 
 from sidedock.branding import app_icon
+from sidedock.autostart import is_enabled as autostart_enabled, set_enabled as set_autostart_enabled
+from sidedock.version import __version__
 from sidedock.presentation import card_kind, preview_text
 from sidedock.interaction import shortcut_keys, select_paste_target
 from sidedock.storage import atomic_write_json, can_capture, file_digest, managed_bytes, MAX_FILE_BYTES, MAX_TEXT_BYTES, MAX_MANAGED_BYTES
@@ -347,7 +349,7 @@ class SideDock(QWidget):
 
     def setup_tray(self):
         self.tray = QSystemTrayIcon(QApplication.instance().windowIcon(), self)
-        self.tray.setToolTip("SideDock")
+        self.tray.setToolTip(f"SideDock {__version__}")
         self.tray_menu = QMenu()
         self.tray_menu.addAction("Show dock", self.show_from_tray)
         self.tray_pause = self.tray_menu.addAction("Pause clipboard capture")
@@ -361,11 +363,28 @@ class SideDock(QWidget):
         shortcut_menu = self.tray_menu.addMenu("Shortcut preset")
         shortcut_menu.addAction("Classic: Ctrl+Shift+V", lambda: self.set_shortcut_preset("classic"))
         shortcut_menu.addAction("Alternative: Ctrl+Alt+V", lambda: self.set_shortcut_preset("alternative"))
+        self.tray_startup = self.tray_menu.addAction("Start with Windows")
+        self.tray_startup.setCheckable(True)
+        try:
+            self.tray_startup.setChecked(autostart_enabled())
+        except OSError:
+            self.tray_startup.setEnabled(False)
+        self.tray_startup.toggled.connect(self.toggle_autostart)
         self.tray_menu.addSeparator()
+        self.tray_menu.addAction(f"SideDock {__version__}").setEnabled(False)
         self.tray_menu.addAction("Quit SideDock", QApplication.quit)
         self.tray.setContextMenu(self.tray_menu)
         self.tray.activated.connect(lambda reason: self.show_from_tray() if reason == QSystemTrayIcon.Trigger else None)
         self.tray.show()
+
+    def toggle_autostart(self, enabled):
+        try:
+            set_autostart_enabled(enabled)
+        except OSError as exc:
+            self.tray_startup.blockSignals(True)
+            self.tray_startup.setChecked(not enabled)
+            self.tray_startup.blockSignals(False)
+            QMessageBox.warning(None, "SideDock", f"Could not change startup: {exc}")
 
     def show_from_tray(self):
         self.show()
@@ -1002,7 +1021,20 @@ def main():
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
     app.setApplicationName("SideDock")
+    app.setApplicationVersion(__version__)
     app.setWindowIcon(app_icon())
+    if "--smoke-test" in sys.argv:
+        # Exercise packaged Qt resources without reading user data, registering
+        # global hooks, or monitoring the clipboard.
+        colors = resolve_colors({"mode": "deep_dark"})
+        popup = QuickPastePopup(lambda _: None)
+        popup.apply_theme(colors)
+        panel = SettingsPanel({}, lambda: None, lambda _: None, lambda: None)
+        panel.add_capture_control(False, lambda _: None)
+        card = DraggableCard({"type": "text", "content": "test"}, colors, lambda _: None, lambda _: None)
+        if app.windowIcon().isNull() or not build_dock_qss(colors):
+            raise SystemExit(2)
+        return
     data_dir = Path.home() / "SideDockData"
     data_dir.mkdir(parents=True, exist_ok=True)
     lock = QLockFile(str(data_dir / "instance.lock"))
