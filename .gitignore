@@ -1,0 +1,7 @@
+SideDockData/
+__pycache__/
+*.pyc
+*.vbs
+dist/
+build/
+*.spec
