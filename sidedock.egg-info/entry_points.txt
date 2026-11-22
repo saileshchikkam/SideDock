@@ -1,0 +1,2 @@
+[console_scripts]
+sidedock = sidedock.main:main

@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sidedock"
+version = "1.0.0"
+description = "An invisible, auto-hiding floating side dock for Windows clipboard, screenshots, and files."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "PySide6>=6.5",
+    "keyboard>=0.13.5",
+]
+
+[project.scripts]
+sidedock = "sidedock.main:main"
+
+[tool.setuptools.packages.find]
+include = ["sidedock*"]

@@ -38,8 +38,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from theme import build_dock_qss, resolve_colors
-from widgets import (
+from sidedock.theme import build_dock_qss, resolve_colors
+from sidedock.widgets import (
     DraggableCard,
     GWL_EXSTYLE,
     QuickPastePopup,
@@ -106,7 +106,7 @@ class SideDock(QWidget):
         self.rapid_buffer = []
 
         # 1. Local PC storage setup
-        self.data_dir = Path(__file__).parent / "SideDockData"
+        self.data_dir = Path.home() / "SideDockData"
         self.files_dir = self.data_dir / "files"
         self.files_dir.mkdir(parents=True, exist_ok=True)
         self.index_file = self.data_dir / "items.json"
@@ -745,11 +745,13 @@ class SideDock(QWidget):
         mime.setUrls([QUrl.fromLocalFile(path)])
         self.clipboard.setMimeData(mime)
 
-
-if __name__ == "__main__":
+def main():
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
     dock = SideDock()
     dock.show()
-    print("SideDock is running! Hover the middle-right edge of your screen.")
+    print("SideDock is running! Hover your screen edge.")
     sys.exit(app.exec())
+
+if __name__ == "__main__":
+    main()
