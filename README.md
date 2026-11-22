@@ -1,58 +1,97 @@
-# SideDock
+<p align="center"><img src="docs/brand-mark.svg" width="96" alt="SideDock logo"></p>
 
-An auto-hiding Windows 10/11 productivity dock for text, screenshots and files. Everything stays on your PC.
+<h1 align="center">SideDock</h1>
+<p align="center"><strong>Everything you copy. One edge away.</strong></p>
+<p align="center">A local-first clipboard and drag-and-drop dock for Windows 10/11.</p>
 
-## Install from source (Windows, Python 3.10+)
+> **Release candidate:** the automated Windows build, unit tests and isolated smoke tests passed. Interactive testing on real Windows desktops is pending. There is no stable public release yet.
+
+## A workspace between apps
+
+SideDock hides at the edge of your screen until you need it. Collect a screenshot, a code snippet, a URL or a file, then move it into your next application without opening a separate window.
+
+- **Edge-peek** — a thin, auto-hiding dock with smooth expansion, pinning, resizing and monitor-aware positioning.
+- **Clipboard capture** — searchable text, links, screenshots, images, and local files, with Windows clipboard privacy exclusions respected when supplied by the source application.
+- **Drag and drop** — save items by dragging them onto the dock; drag them out to compatible apps.
+- **Quick-Paste** — access up to three recent items from a keyboard shortcut or the eight-second popup.
+- **Favorites** — star important items to preserve them when clearing unstarred history.
+- **Local controls** — pause capture, switch shortcut presets, and manage startup from the notification-area icon.
+- **Appearance** — Deep Dark, Dark and Windows accent-aware modes.
+
+## Try the Windows release candidate
+
+1. Open the [successful Windows build](https://github.com/saileshchikkam/SideDock/actions/runs/45027136525).
+2. Download the **SideDock-Windows** artifact (GitHub sign-in may be required; artifacts expire).
+3. Extract the ZIP to a permanent folder, verify the checksum, and run `SideDock.exe`.
+4. Hover over the right screen edge to open SideDock.
+
+No Python installation is required for the portable executable. It is unsigned, so Windows may display a trust warning. Do not bypass security warnings unless you have verified the source and checksum and trust the publisher.
+
+Verify the SHA-256 digest in PowerShell:
 
 ```powershell
-pip install git+https://github.com/saileshchikkam/SideDock.git
+Get-FileHash .\SideDock.exe -Algorithm SHA256
+Get-Content .\SHA256SUMS.txt
+```
+
+Compare the hashes before running the file.
+
+### Install from source
+
+Requires Windows and Python 3.10+; Git must be available for the Git URL installation.
+
+```powershell
+python -m pip install "git+https://github.com/saileshchikkam/SideDock.git@release/v1.0-hardening"
 python -m sidedock
 ```
 
-Hover the right screen edge to open the dock. Drag the top handle to move it, or use Settings to change side and theme.
+To stop SideDock, choose **Quit SideDock** from its notification-area menu. To disable automatic startup, turn off **Start with Windows** before removing the executable.
 
-## Controls
+## Keyboard shortcuts
 
-- Copy text, URLs, screenshots or files to collect them automatically.
-- Drag items in or out; click a saved card to paste it.
-- Star important items; Clear removes unstarred items.
-- Ctrl+Shift+V opens the latest three slots. Ctrl+Alt+1/2/3 selects a displayed slot.
-- After copying several items, Ctrl+V opens the remaining quick-paste slots.
+| Action | Classic | Alternative |
+| --- | --- | --- |
+| Paste normally (show remaining recent items when available) | Ctrl+V | Ctrl+V |
+| Open Quick-Paste | Ctrl+Shift+V | Ctrl+Alt+V |
+| Select a visible slot | Ctrl+Alt+1/2/3 | Ctrl+Shift+Alt+1/2/3 |
 
-## Privacy and limits (hardening branch)
+Change the preset or disable the global shortcuts from the tray menu. Numbered shortcuts are registered only while their slots are visible. If Windows denies focus restoration, the selected item stays on the clipboard rather than sending an unchecked paste.
 
-Data is stored in `%USERPROFILE%\SideDockData` as local JSON and files, **not encrypted**. Password-manager exclusion is honored when the source application supplies the Windows exclusion format; it is not a guarantee that every secret is excluded. Settings lets you pause automatic capture (manual drops still work). Existing history is not deleted when pausing.
+## Privacy and data
 
-New imports stop at 500 history items, 256 KiB per text item, 50 MiB per file/image or 500 MiB of stored copies. Clear or remove items to make room. Existing history above the limits is retained. Folders are referenced, not copied.
+SideDock stores local history in `%USERPROFILE%\SideDockData`. There is no account or backend service in the application. The history JSON and saved copies **are not encrypted**. Only clipboard applications that supply the Windows exclusion format can be automatically excluded; do not assume every password or sensitive value is excluded.
 
-## Development
+- Pause automatic clipboard capture in Settings or the tray. Manual drops remain available.
+- Clear removes unstarred saved items and their managed copies; this is not an undoable operation.
+- Original source files are not removed by Clear. Folders are referenced rather than copied.
+- Existing history is preserved when capture is paused or when storage limits change.
 
-```powershell
-pip install -e .
-python -m unittest discover -s tests
-python -m sidedock
-```
+| Limit for new imports | Value |
+| --- | --- |
+| History items | 500 |
+| Text item | 256 KiB |
+| File or image | 50 MiB |
+| Managed file copies | 500 MiB |
 
-Use the tray menu’s **Start with Windows** toggle to register the current executable or Python installation for the current user. The optional `python setup_autostart.py` helper toggles the same setting. Move the portable executable to its permanent location before enabling startup; Windows may independently disable startup apps.
+If a limit is reached, new imports are skipped. Remove items to make space.
 
-## Tray and monitors
-
-The notification-area icon opens the dock, pauses automatic capture, toggles global shortcuts, selects a shortcut preset, or quits SideDock. The classic preset uses Ctrl+Shift+V and Ctrl+Alt+1/2/3; the alternative uses Ctrl+Alt+V and Ctrl+Shift+Alt+1/2/3. Numbered shortcuts are registered only while their slots are visible. Disable global shortcuts to avoid conflicts with other apps. Drag the top handle to another monitor to move the dock; its monitor is remembered. If Windows refuses foreground restoration, SideDock leaves the item on the clipboard instead of sending an unchecked paste.
-
-## Visual identity
-
-SideDock uses a restrained monochrome palette in Deep Dark and Dark, and follows the system accent in Windows mode. Cards show content types, accessible favorite/remove actions, and copy feedback. Quick-Paste follows the active theme and displays an eight-second countdown. The application and tray share a scalable, locally drawn icon.
-
-## Build the portable Windows executable
-
-On Windows with Python 3.12:
+## Development and building
 
 ```powershell
+git clone -b release/v1.0-hardening https://github.com/saileshchikkam/SideDock.git
+cd SideDock
 python -m pip install -e . -r requirements-build.txt
 python -m unittest discover -s tests -v
+python -m sidedock --smoke-test
 python scripts/build_windows.py
 ```
 
-The build produces `dist/SideDock.exe` (no Python installation required on the destination machine) and `dist/SHA256SUMS.txt`. It includes the application icon and Windows version information and runs an isolated packaged smoke test. Compare the checksum with `Get-FileHash .\dist\SideDock.exe -Algorithm SHA256` before distributing. The Windows executable is unsigned; Windows may display a trust warning. Native interactive testing is still needed before a stable release.
+Build on Windows with Python 3.12. Outputs: `dist/SideDock.exe` and `dist/SHA256SUMS.txt`. GitHub Actions builds and uploads the portable package after the checks succeed; it does not publish releases automatically.
 
-GitHub Actions uploads the executable and checksum as a build artifact after successful checks; it does not publish releases automatically.
+## Release information
+
+- [Changelog](CHANGELOG.md)
+- [Windows acceptance and release checklist](docs/RELEASE_CHECKLIST.md)
+- [Security and privacy notes](SECURITY.md)
+
+License selection is pending. Public repository visibility alone does not establish an open-source license.
