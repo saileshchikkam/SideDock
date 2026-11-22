@@ -321,6 +321,18 @@ class SettingsPanel(QWidget):
         layout.addStretch()
         self.sync_buttons()
 
+    def add_capture_control(self, paused, callback):
+        button = QPushButton("Pause clipboard capture")
+        button.setObjectName("ModeBtn")
+        button.setCheckable(True)
+        button.setChecked(paused)
+        button.toggled.connect(callback)
+        self.layout().insertWidget(self.layout().count() - 1, button)
+        note = QLabel("Paused capture skips automatic clipboard monitoring. Manual drops and saved items remain available.")
+        note.setObjectName("SubLabel")
+        note.setWordWrap(True)
+        self.layout().insertWidget(self.layout().count() - 1, note)
+
     def sync_buttons(self):
         current_mode = self.settings.get("mode", "deep_dark")
         for k, btn in self.mode_buttons.items():

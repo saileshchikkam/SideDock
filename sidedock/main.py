@@ -6,6 +6,8 @@ import shutil
 import subprocess
 import sys
 import time
+import uuid
+import logging
 from pathlib import Path
 import keyboard
 from PySide6.QtCore import (
@@ -13,6 +15,7 @@ from PySide6.QtCore import (
     QByteArray,
     QEasingCurve,
     QIODevice,
+    QLockFile,
     QMimeData,
     QParallelAnimationGroup,
     QPoint,
@@ -29,6 +32,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPushButton,
     QScrollArea,
     QSizeGrip,
@@ -38,6 +42,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from sidedock.storage import atomic_write_json, can_capture, file_digest, managed_bytes, MAX_FILE_BYTES, MAX_TEXT_BYTES, MAX_MANAGED_BYTES
 from sidedock.theme import build_dock_qss, resolve_colors
 from sidedock.widgets import (
     DraggableCard,
@@ -99,6 +104,7 @@ class SideDock(QWidget):
     def __init__(self):
         super().__init__()
         self._ignore_clipboard = False
+        self._capture_paused = False
         self._is_dragging_out = False
         self._is_dragging_dock = False
         self.is_pinned = False
@@ -112,9 +118,15 @@ class SideDock(QWidget):
         self.index_file = self.data_dir / "items.json"
         self.settings_file = self.data_dir / "settings.json"
         self.saved_items = self.load_json(self.index_file, [])
+        if not isinstance(self.saved_items, list):
+            raise ValueError("Invalid clipboard history; existing file has been preserved")
         self.settings = self.load_json(
             self.settings_file, {"mode": "deep_dark", "side": "right", "y": None}
         )
+
+        if not isinstance(self.settings, dict):
+            raise ValueError("Invalid settings; existing file has been preserved")
+        self._capture_paused = self.settings.get("capture_paused", False)
 
         # 2. Frameless, always on top, hidden from taskbar
         self.setWindowFlags(
@@ -244,6 +256,7 @@ class SideDock(QWidget):
             self.set_dock_side,
             lambda: self.pages.setCurrentIndex(0),
         )
+        self.settings_panel.add_capture_control(self._capture_paused, self.set_capture_paused)
         self.pages.addWidget(items_page)
         self.pages.addWidget(self.settings_panel)
         layout.addWidget(self.pages)
@@ -272,6 +285,7 @@ class SideDock(QWidget):
         self.clip_timer = QTimer(self)
         self.clip_timer.timeout.connect(self.check_clipboard)
         self.clip_timer.start(250)
+        QApplication.instance().aboutToQuit.connect(keyboard.unhook_all_hotkeys)
 
         # 7. Quick-Paste 8s popup + hotkeys
         self.quick_popup = QuickPastePopup(self.paste_item_now)
@@ -341,11 +355,18 @@ class SideDock(QWidget):
             return default
         try:
             return json.loads(path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
-            return default
+        except (json.JSONDecodeError, OSError) as exc:
+            raise ValueError(f"Cannot read {path.name}; existing file has been preserved") from exc
 
     def save_json(self, path, data):
-        path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        atomic_write_json(path, data)
+
+    def set_capture_paused(self, paused):
+        self._capture_paused = paused
+        self.settings["capture_paused"] = paused
+        self.rapid_buffer = []
+        self.quick_popup.dismiss()
+        self.save_json(self.settings_file, self.settings)
 
     def apply_theme(self, drag_highlight=False):
         self.colors = resolve_colors(self.settings)
@@ -360,18 +381,24 @@ class SideDock(QWidget):
         self.pages.setCurrentIndex(1 if self.pages.currentIndex() == 0 else 0)
 
     def clear_unpinned(self):
-        kept = []
-        for item in self.saved_items:
-            if item.get("pinned"):
-                kept.append(item)
-            elif item["type"] in ("image", "file"):
-                p = Path(item["path"])
-                if p.exists() and p.parent == self.files_dir:
-                    p.unlink(missing_ok=True)
+        kept = [item for item in self.saved_items if item.get("pinned")]
+        removed = [item for item in self.saved_items if not item.get("pinned")]
+        self.save_json(self.index_file, kept)
         self.saved_items = kept
         self.rapid_buffer = []
-        self.save_json(self.index_file, self.saved_items)
+        self.quick_popup.dismiss()
+        for item in removed:
+            self.remove_managed_file(item)
         self.refresh_list()
+
+    def remove_managed_file(self, item):
+        if item["type"] in ("image", "file"):
+            p = Path(item["path"])
+            if p.parent == self.files_dir and not any(other.get("path") == str(p) for other in self.saved_items):
+                try:
+                    p.unlink(missing_ok=True)
+                except OSError:
+                    logging.exception("Could not delete stored copy")
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -410,6 +437,8 @@ class SideDock(QWidget):
         self.quick_popup.show_slots(numbered, "Quick Paste (Ctrl+Alt+1/2/3)")
 
     def paste_item_now(self, item):
+        if item["type"] in ("image", "file") and not Path(item["path"]).exists():
+            return
         if item["type"] == "image":
             self.copy_image_back(item["path"])
         elif item["type"] == "file":
@@ -501,7 +530,7 @@ class SideDock(QWidget):
         if self._is_dragging_out:
             return
         self.apply_theme(drag_highlight=False)
-        self.process_mime(event.mimeData())
+        self.safe_process_mime(event.mimeData())
         event.acceptProposedAction()
 
     def toggle_pin(self, checked):
@@ -544,79 +573,91 @@ class SideDock(QWidget):
         if self._ignore_clipboard:
             self._ignore_clipboard = False
             return
+        if self._capture_paused:
+            return
         if ctypes.windll.user32.IsClipboardFormatAvailable(EXCLUDE_CLIPBOARD_FMT):
             return
 
-        self.process_mime(self.clipboard.mimeData())
+        self.safe_process_mime(self.clipboard.mimeData())
 
     def record_new_item(self, item):
         item.setdefault("pinned", False)
+        self.save_json(self.index_file, [item, *self.saved_items])
         self.saved_items.insert(0, item)
         self.rapid_buffer.insert(0, item)
         self.rapid_buffer = self.rapid_buffer[:3]
-        self.save_json(self.index_file, self.saved_items)
         self.refresh_list()
 
+    def safe_process_mime(self, mime):
+        try:
+            self.process_mime(mime)
+        except (OSError, ValueError):
+            logging.exception("SideDock could not capture an item")
+
     def process_mime(self, mime):
-        if mime.hasUrls():
+        if mime is None or not can_capture(self.saved_items):
+            return
+        if mime.hasUrls() and any(url.isLocalFile() for url in mime.urls()):
             for url in mime.urls():
-                if not url.isLocalFile():
+                if not can_capture(self.saved_items) or not url.isLocalFile():
                     continue
                 src = Path(url.toLocalFile())
                 if not src.exists():
                     continue
-
-                if src.is_file():
-                    dest = self.files_dir / f"{int(time.time() * 1000)}_{src.name}"
+                latest = self.saved_items[0] if self.saved_items else {}
+                if src.is_dir():
+                    if latest.get("path") != str(src):
+                        self.record_new_item({"type": "file", "name": src.name, "path": str(src)})
+                    continue
+                size = src.stat().st_size
+                if size > MAX_FILE_BYTES or managed_bytes(self.files_dir) + size > MAX_MANAGED_BYTES:
+                    continue
+                digest = file_digest(src)
+                kind = "image" if src.suffix.lower() in IMAGE_EXTS else "file"
+                if latest.get("hash") == digest and latest.get("type") == kind and latest.get("name") == src.name:
+                    continue
+                dest = self.files_dir / f"{uuid.uuid4().hex}_{src.name}"
+                try:
                     shutil.copy2(src, dest)
-                    saved_path = str(dest)
-                else:
-                    saved_path = str(src)
-
-                if src.is_file() and src.suffix.lower() in IMAGE_EXTS:
-                    img_hash = hashlib.md5(Path(saved_path).read_bytes()).hexdigest()
-                    if self.saved_items and self.saved_items[0].get("hash") == img_hash:
-                        continue
-                    item = {"type": "image", "path": saved_path, "hash": img_hash, "name": src.name}
-                else:
-                    if self.saved_items and self.saved_items[0].get("name") == src.name:
-                        continue
-                    item = {"type": "file", "name": src.name, "path": saved_path}
-
-                self.record_new_item(item)
+                    if dest.stat().st_size > size:
+                        raise ValueError("File grew during capture")
+                    self.record_new_item({"type": kind, "path": str(dest), "hash": digest, "name": src.name})
+                except (OSError, ValueError):
+                    dest.unlink(missing_ok=True)
+                    raise
             return
 
         if mime.hasImage():
             image = QImage(mime.imageData())
-            if image.isNull():
+            if image.isNull() or image.sizeInBytes() > MAX_FILE_BYTES:
                 return
-
             ba = QByteArray()
             buf = QBuffer(ba)
             buf.open(QIODevice.WriteOnly)
-            image.save(buf, "PNG")
+            if not image.save(buf, "PNG"):
+                return
             img_bytes = bytes(ba)
+            if len(img_bytes) > MAX_FILE_BYTES or managed_bytes(self.files_dir) + len(img_bytes) > MAX_MANAGED_BYTES:
+                return
             img_hash = hashlib.md5(img_bytes).hexdigest()
-
             if self.saved_items and self.saved_items[0].get("hash") == img_hash:
                 return
-
-            file_path = self.files_dir / f"img_{int(time.time() * 1000)}.png"
-            file_path.write_bytes(img_bytes)
-
-            item = {"type": "image", "path": str(file_path), "hash": img_hash}
-            self.record_new_item(item)
+            file_path = self.files_dir / f"img_{uuid.uuid4().hex}.png"
+            try:
+                file_path.write_bytes(img_bytes)
+                self.record_new_item({"type": "image", "path": str(file_path), "hash": img_hash})
+            except (OSError, ValueError):
+                file_path.unlink(missing_ok=True)
+                raise
             return
 
         if mime.hasText():
-            text = mime.text().strip()
-            if not text:
+            text = mime.text()
+            if not text.strip() or len(text.encode("utf-8")) > MAX_TEXT_BYTES:
                 return
             if self.saved_items and self.saved_items[0].get("content") == text:
                 return
-
-            item = {"type": "text", "content": text}
-            self.record_new_item(item)
+            self.record_new_item({"type": "text", "content": text})
 
     def matches_query(self, item, query):
         if not query:
@@ -660,6 +701,7 @@ class SideDock(QWidget):
 
         content = QLabel()
         content.setObjectName("CardText")
+        content.setTextFormat(Qt.PlainText)
         content.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
         content.setMinimumWidth(0)
         content.setStyleSheet("background: transparent; border: none; font-size: 12px;")
@@ -723,12 +765,13 @@ class SideDock(QWidget):
 
     def remove_item(self, item):
         if item in self.saved_items:
-            self.saved_items.remove(item)
-            self.save_json(self.index_file, self.saved_items)
-        if item["type"] in ("image", "file"):
-            p = Path(item["path"])
-            if p.exists() and p.parent == self.files_dir:
-                p.unlink(missing_ok=True)
+            remaining = self.saved_items.copy()
+            remaining.remove(item)
+            self.save_json(self.index_file, remaining)
+            self.saved_items = remaining
+        self.rapid_buffer = [entry for entry in self.rapid_buffer if entry is not item]
+        self.quick_popup.dismiss()
+        self.remove_managed_file(item)
         self.refresh_list()
 
     def copy_text_back(self, text):
@@ -748,10 +791,24 @@ class SideDock(QWidget):
 def main():
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
-    dock = SideDock()
+    data_dir = Path.home() / "SideDockData"
+    data_dir.mkdir(parents=True, exist_ok=True)
+    lock = QLockFile(str(data_dir / "instance.lock"))
+    lock.setStaleLockTime(0)
+    if not lock.tryLock(0):
+        QMessageBox.information(None, "SideDock", "SideDock is already running or its data directory is locked.")
+        return
+    try:
+        dock = SideDock()
+    except (OSError, ValueError) as exc:
+        QMessageBox.critical(None, "SideDock", str(exc))
+        lock.unlock()
+        return
     dock.show()
     print("SideDock is running! Hover your screen edge.")
-    sys.exit(app.exec())
+    exit_code = app.exec()
+    lock.unlock()
+    sys.exit(exit_code)
 
 if __name__ == "__main__":
     main()
