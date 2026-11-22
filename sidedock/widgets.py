@@ -1,5 +1,5 @@
 import ctypes
-from PySide6.QtCore import QMimeData, Qt, QTimer, QUrl
+from PySide6.QtCore import QMimeData, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QDrag, QImage
 from PySide6.QtWidgets import (
     QApplication,
@@ -103,6 +103,7 @@ class DraggableCard(QFrame):
 
 
 class QuickPastePopup(QWidget):
+    slots_changed = Signal()
     def __init__(self, on_pick_callback):
         super().__init__()
         self.on_pick = on_pick_callback
@@ -185,6 +186,7 @@ class QuickPastePopup(QWidget):
             return
         self.title_label.setText(title_text)
         self.slot_map = {num: item for num, item in numbered_items}
+        self.slots_changed.emit()
         self.render_slots()
 
         self.seconds_left = 8
@@ -243,6 +245,7 @@ class QuickPastePopup(QWidget):
     def dismiss(self):
         self.countdown.stop()
         self.slot_map.clear()
+        self.slots_changed.emit()
         self.hide()
 
     def pick_number(self, num):
@@ -250,6 +253,7 @@ class QuickPastePopup(QWidget):
         if item is None:
             return
 
+        self.slots_changed.emit()
         self.on_pick(item)
         if self.slot_map and self.seconds_left > 0:
             self.render_slots()
@@ -325,6 +329,7 @@ class SettingsPanel(QWidget):
         button = QPushButton("Pause clipboard capture")
         button.setObjectName("ModeBtn")
         button.setCheckable(True)
+        self.capture_button = button
         button.setChecked(paused)
         button.toggled.connect(callback)
         self.layout().insertWidget(self.layout().count() - 1, button)

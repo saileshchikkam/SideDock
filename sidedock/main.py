@@ -1,4 +1,6 @@
 import ctypes
+import os
+from ctypes import wintypes
 import hashlib
 import json
 import re
@@ -25,7 +27,7 @@ from PySide6.QtCore import (
     QUrl,
     Signal,
 )
-from PySide6.QtGui import QCursor, QGuiApplication, QImage, QPixmap
+from PySide6.QtGui import QCursor, QGuiApplication, QImage, QPixmap, QRegion
 from PySide6.QtWidgets import (
     QApplication,
     QFrame,
@@ -33,6 +35,9 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QMessageBox,
+    QMenu,
+    QSystemTrayIcon,
+    QStyle,
     QPushButton,
     QScrollArea,
     QSizeGrip,
@@ -42,6 +47,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from sidedock.interaction import shortcut_keys, select_paste_target
 from sidedock.storage import atomic_write_json, can_capture, file_digest, managed_bytes, MAX_FILE_BYTES, MAX_TEXT_BYTES, MAX_MANAGED_BYTES
 from sidedock.theme import build_dock_qss, resolve_colors
 from sidedock.widgets import (
@@ -51,6 +57,18 @@ from sidedock.widgets import (
     SettingsPanel,
     WS_EX_NOACTIVATE,
 )
+
+user32 = ctypes.windll.user32
+user32.GetForegroundWindow.restype = wintypes.HWND
+user32.SetForegroundWindow.argtypes = [wintypes.HWND]
+user32.SetForegroundWindow.restype = wintypes.BOOL
+user32.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
+user32.GetWindowThreadProcessId.restype = wintypes.DWORD
+
+def window_identity(hwnd):
+    pid = wintypes.DWORD()
+    tid = user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid)) if hwnd else 0
+    return (hwnd, pid.value, tid) if tid else None
 
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"}
 EXCLUDE_CLIPBOARD_FMT = ctypes.windll.user32.RegisterClipboardFormatW(
@@ -82,6 +100,7 @@ class DockGrabber(QWidget):
             self.dock.hide_timer.stop()
             self.dock.hover_watch.stop()
             self.dock._is_dragging_dock = True
+            self.dock.clearMask()
             self.setCursor(Qt.ClosedHandCursor)
 
     def mouseMoveEvent(self, event):
@@ -110,6 +129,10 @@ class SideDock(QWidget):
         self.is_pinned = False
         self.is_expanded = False
         self.rapid_buffer = []
+        self._search_target = None
+        self._paste_generation = 0
+        self._hotkey_removers = []
+        self._slot_removers = []
 
         # 1. Local PC storage setup
         self.data_dir = Path.home() / "SideDockData"
@@ -140,7 +163,8 @@ class SideDock(QWidget):
         # 3. Hidden (6px edge-peek) and expanded positions
         self.dock_width, self.dock_height = 300, 490
         self.dock_side = self.settings.get("side", "right")
-        screen = QGuiApplication.primaryScreen().availableGeometry()
+        self.monitor = next((screen for screen in QGuiApplication.screens() if screen.name() == self.settings.get("monitor")), QGuiApplication.primaryScreen())
+        screen = self.monitor.availableGeometry()
         default_y = screen.top() + (screen.height() - self.dock_height) // 2
         saved_y = self.settings.get("y")
         self.y_pos = saved_y if isinstance(saved_y, int) else default_y
@@ -285,7 +309,7 @@ class SideDock(QWidget):
         self.clip_timer = QTimer(self)
         self.clip_timer.timeout.connect(self.check_clipboard)
         self.clip_timer.start(250)
-        QApplication.instance().aboutToQuit.connect(keyboard.unhook_all_hotkeys)
+        QApplication.instance().aboutToQuit.connect(self.unregister_hotkeys)
 
         # 7. Quick-Paste 8s popup + hotkeys
         self.quick_popup = QuickPastePopup(self.paste_item_now)
@@ -293,11 +317,124 @@ class SideDock(QWidget):
         self.trigger_all_slots_signal.connect(self.open_all_slots_popup)
         self.pick_slot_signal.connect(self.quick_popup.pick_number)
 
-        keyboard.add_hotkey("ctrl+v", self.on_ctrl_v, suppress=False)
-        keyboard.add_hotkey("ctrl+shift+v", lambda: self.trigger_all_slots_signal.emit(), suppress=True)
-        keyboard.add_hotkey("ctrl+alt+1", lambda: self.pick_slot_signal.emit(1), suppress=True)
-        keyboard.add_hotkey("ctrl+alt+2", lambda: self.pick_slot_signal.emit(2), suppress=True)
-        keyboard.add_hotkey("ctrl+alt+3", lambda: self.pick_slot_signal.emit(3), suppress=True)
+        self.quick_popup.slots_changed.connect(self.sync_slot_hotkeys)
+        self.setup_tray()
+        self.register_hotkeys()
+        app = QApplication.instance()
+        app.screenRemoved.connect(self.on_screen_removed)
+        app.screenAdded.connect(self.on_screen_added)
+        for monitor in app.screens():
+            monitor.availableGeometryChanged.connect(self.on_monitor_geometry_changed)
+        self.update_monitor_mask()
+
+    def setup_tray(self):
+        self.tray = QSystemTrayIcon(self.style().standardIcon(QStyle.SP_ComputerIcon), self)
+        self.tray.setToolTip("SideDock")
+        self.tray_menu = QMenu()
+        self.tray_menu.addAction("Show dock", self.show_from_tray)
+        self.tray_pause = self.tray_menu.addAction("Pause clipboard capture")
+        self.tray_pause.setCheckable(True)
+        self.tray_pause.setChecked(self._capture_paused)
+        self.tray_pause.toggled.connect(self.set_capture_paused)
+        self.tray_shortcuts = self.tray_menu.addAction("Enable global shortcuts")
+        self.tray_shortcuts.setCheckable(True)
+        self.tray_shortcuts.setChecked(self.settings.get("shortcuts_enabled", True))
+        self.tray_shortcuts.toggled.connect(self.set_shortcuts_enabled)
+        shortcut_menu = self.tray_menu.addMenu("Shortcut preset")
+        shortcut_menu.addAction("Classic: Ctrl+Shift+V", lambda: self.set_shortcut_preset("classic"))
+        shortcut_menu.addAction("Alternative: Ctrl+Alt+V", lambda: self.set_shortcut_preset("alternative"))
+        self.tray_menu.addSeparator()
+        self.tray_menu.addAction("Quit SideDock", QApplication.quit)
+        self.tray.setContextMenu(self.tray_menu)
+        self.tray.activated.connect(lambda reason: self.show_from_tray() if reason == QSystemTrayIcon.Trigger else None)
+        self.tray.show()
+
+    def show_from_tray(self):
+        self.show()
+        self.expand()
+
+    def unregister_hotkeys(self):
+        for remove in self._slot_removers + self._hotkey_removers:
+            try:
+                remove()
+            except (KeyError, ValueError):
+                pass
+        self._slot_removers.clear()
+        self._hotkey_removers.clear()
+
+    def shortcut_keys(self):
+        return shortcut_keys(self.settings.get("shortcut_preset"))
+
+    def set_shortcut_preset(self, preset):
+        self.settings["shortcut_preset"] = preset
+        self.save_json(self.settings_file, self.settings)
+        self.quick_popup.dismiss()
+        self.register_hotkeys()
+
+    def register_hotkeys(self):
+        self.unregister_hotkeys()
+        if not self.settings.get("shortcuts_enabled", True):
+            return
+        try:
+            self._hotkey_removers.append(keyboard.add_hotkey("ctrl+v", self.on_ctrl_v, suppress=False))
+            self._hotkey_removers.append(keyboard.add_hotkey(self.shortcut_keys()[0], lambda: self.trigger_all_slots_signal.emit(), suppress=True))
+            self.sync_slot_hotkeys()
+        except (ValueError, OSError):
+            self.unregister_hotkeys()
+            logging.exception("Unable to register shortcuts")
+
+    def sync_slot_hotkeys(self):
+        for remove in self._slot_removers:
+            try:
+                remove()
+            except (KeyError, ValueError):
+                pass
+        self._slot_removers.clear()
+        if not self.settings.get("shortcuts_enabled", True):
+            return
+        try:
+            for number in self.quick_popup.slot_map:
+                self._slot_removers.append(keyboard.add_hotkey(f"{self.shortcut_keys()[1]}+{number}", lambda n=number: self.pick_slot_signal.emit(n), suppress=True))
+        except (ValueError, OSError):
+            logging.exception("Unable to register popup shortcuts")
+
+    def set_shortcuts_enabled(self, enabled):
+        self.settings["shortcuts_enabled"] = enabled
+        self.save_json(self.settings_file, self.settings)
+        self.quick_popup.dismiss()
+        self.register_hotkeys()
+
+    def on_screen_added(self, screen):
+        screen.availableGeometryChanged.connect(self.on_monitor_geometry_changed)
+
+    def on_screen_removed(self, screen):
+        if self.monitor == screen:
+            self.monitor = QGuiApplication.primaryScreen()
+            if self.monitor is not None:
+                self.settings["monitor"] = self.monitor.name()
+                self.on_monitor_geometry_changed()
+
+    def on_monitor_geometry_changed(self, *_):
+        if self.monitor is None:
+            return
+        self.update_edge_coords()
+        self.anim_group.stop()
+        self.move(self.x_shown if self.is_expanded else self.x_hidden, self.y_pos)
+        self.update_monitor_mask()
+
+    def update_monitor_mask(self):
+        if not hasattr(self, "monitor") or self.monitor is None:
+            return
+        visible = self.geometry().intersected(self.monitor.availableGeometry())
+        if visible == self.geometry():
+            self.clearMask()
+        elif not visible.isEmpty():
+            self.setMask(QRegion(visible.translated(-self.x(), -self.y())))
+
+    def moveEvent(self, event):
+        if not self._is_dragging_dock:
+            self.update_monitor_mask()
+        super().moveEvent(event)
 
     def sync_list_width(self):
         vw = self.scroll.viewport().width()
@@ -317,7 +454,7 @@ class SideDock(QWidget):
             self.bottom_bar.addWidget(self.gear_btn, 0, Qt.AlignRight | Qt.AlignBottom)
 
     def update_edge_coords(self):
-        screen = QGuiApplication.primaryScreen().availableGeometry()
+        screen = self.monitor.availableGeometry()
         min_y = screen.top() + 8
         max_y = max(min_y, screen.bottom() - self.dock_height - 8)
         self.y_pos = max(min_y, min(self.y_pos, max_y))
@@ -331,13 +468,16 @@ class SideDock(QWidget):
 
     def set_dock_side(self, side):
         self.dock_side = side
+        self.settings["side"] = side
         self.update_edge_coords()
         self.update_footer_layout()
         self.save_json(self.settings_file, self.settings)
         self.expand()
 
     def snap_to_side_edge(self):
-        screen = QGuiApplication.primaryScreen().availableGeometry()
+        self.monitor = QGuiApplication.screenAt(QCursor.pos()) or self.monitor
+        self.settings["monitor"] = self.monitor.name()
+        screen = self.monitor.availableGeometry()
         center_x = self.x() + self.dock_width // 2
         self.dock_side = "left" if center_x < screen.center().x() else "right"
         self.y_pos = self.y()
@@ -363,6 +503,15 @@ class SideDock(QWidget):
 
     def set_capture_paused(self, paused):
         self._capture_paused = paused
+        self.settings_panel.capture_button.blockSignals(True)
+        self.settings_panel.capture_button.setChecked(paused)
+        self.settings_panel.capture_button.blockSignals(False)
+        if hasattr(self, "tray_pause"):
+            self.tray_pause.blockSignals(True)
+            self.tray_pause.setChecked(paused)
+            self.tray_pause.blockSignals(False)
+        self._last_clip_seq = user32.GetClipboardSequenceNumber()
+        self._ignore_clipboard = False
         self.settings["capture_paused"] = paused
         self.rapid_buffer = []
         self.quick_popup.dismiss()
@@ -407,6 +556,9 @@ class SideDock(QWidget):
         QTimer.singleShot(0, self.sync_list_width)
 
     def on_search_click(self, event):
+        identity = window_identity(user32.GetForegroundWindow())
+        if identity and identity[1] != os.getpid():
+            self._search_target = identity
         hwnd = int(self.winId())
         ex_style = ctypes.windll.user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
         ctypes.windll.user32.SetWindowLongW(
@@ -429,12 +581,16 @@ class SideDock(QWidget):
     def open_remaining_popup(self):
         remaining = list(enumerate(self.rapid_buffer[1:3], start=2))
         self.rapid_buffer = []
-        self.quick_popup.show_slots(remaining, "Also Copied (Ctrl+Alt+2/3)")
+        if not self.settings.get("shortcuts_enabled", True):
+            return
+        self.quick_popup.show_slots(remaining, f"Also Copied ({self.shortcut_keys()[2]}+2/3)")
 
     def open_all_slots_popup(self):
         items = self.rapid_buffer if self.rapid_buffer else self.saved_items[:3]
         numbered = list(enumerate(items[:3], start=1))
-        self.quick_popup.show_slots(numbered, "Quick Paste (Ctrl+Alt+1/2/3)")
+        if not self.settings.get("shortcuts_enabled", True):
+            return
+        self.quick_popup.show_slots(numbered, f"Quick Paste ({self.shortcut_keys()[2]}+1/2/3)")
 
     def paste_item_now(self, item):
         if item["type"] in ("image", "file") and not Path(item["path"]).exists():
@@ -445,7 +601,21 @@ class SideDock(QWidget):
             self.copy_file_back(item["path"])
         else:
             self.copy_text_back(item["content"])
-        QTimer.singleShot(80, lambda: keyboard.send("ctrl+v"))
+        self._paste_generation += 1
+        generation = self._paste_generation
+        foreground = window_identity(user32.GetForegroundWindow())
+        target = select_paste_target(foreground, self._search_target, os.getpid())
+        self._search_target = None
+        if target is None or window_identity(target[0]) != target:
+            return
+        self.restore_no_activate()
+        foreground = window_identity(user32.GetForegroundWindow())
+        if foreground and foreground[1] == os.getpid():
+            user32.SetForegroundWindow(target[0])
+        def send_if_target():
+            if generation == self._paste_generation and window_identity(user32.GetForegroundWindow()) == target:
+                keyboard.send("ctrl+v")
+        QTimer.singleShot(80, send_if_target)
 
     def set_drag_out_state(self, active):
         self._is_dragging_out = active
@@ -466,6 +636,7 @@ class SideDock(QWidget):
          self.hide_timer.stop()
          self.anim_group.stop()
          self.setWindowOpacity(0.98)
+     self.update_monitor_mask()
      super().resizeEvent(event)
 
     def trigger_capture(self):
@@ -476,7 +647,7 @@ class SideDock(QWidget):
 
     def is_cursor_in_dock_zone(self):
         pos = QCursor.pos()
-        screen = QGuiApplication.primaryScreen().availableGeometry()
+        screen = self.monitor.availableGeometry()
         in_y = self.y_pos <= pos.y() <= self.y_pos + self.dock_height
         if not in_y:
             return False
@@ -555,6 +726,7 @@ class SideDock(QWidget):
             return
         self.hover_watch.stop()
         self.search_input.clearFocus()
+        self._search_target = None
         self.restore_no_activate()
         self.is_expanded = False
         self.anim_group.stop()
