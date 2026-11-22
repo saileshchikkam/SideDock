@@ -38,3 +38,7 @@ Optional Python-install startup toggle: `python setup_autostart.py`. This launch
 ## Tray and monitors
 
 The notification-area icon opens the dock, pauses automatic capture, toggles global shortcuts, selects a shortcut preset, or quits SideDock. The classic preset uses Ctrl+Shift+V and Ctrl+Alt+1/2/3; the alternative uses Ctrl+Alt+V and Ctrl+Shift+Alt+1/2/3. Numbered shortcuts are registered only while their slots are visible. Disable global shortcuts to avoid conflicts with other apps. Drag the top handle to another monitor to move the dock; its monitor is remembered. If Windows refuses foreground restoration, SideDock leaves the item on the clipboard instead of sending an unchecked paste.
+
+## Visual identity
+
+SideDock uses a restrained monochrome palette in Deep Dark and Dark, and follows the system accent in Windows mode. Cards show content types, accessible favorite/remove actions, and copy feedback. Quick-Paste follows the active theme and displays an eight-second countdown. The application and tray share a scalable, locally drawn icon.

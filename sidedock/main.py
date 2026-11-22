@@ -37,7 +37,6 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QMenu,
     QSystemTrayIcon,
-    QStyle,
     QPushButton,
     QScrollArea,
     QSizeGrip,
@@ -47,6 +46,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from sidedock.branding import app_icon
+from sidedock.presentation import card_kind, preview_text
 from sidedock.interaction import shortcut_keys, select_paste_target
 from sidedock.storage import atomic_write_json, can_capture, file_digest, managed_bytes, MAX_FILE_BYTES, MAX_TEXT_BYTES, MAX_MANAGED_BYTES
 from sidedock.theme import build_dock_qss, resolve_colors
@@ -200,8 +201,8 @@ class SideDock(QWidget):
         self.container.setGeometry(0, 0, self.dock_width, self.dock_height)
 
         layout = QVBoxLayout(self.container)
-        layout.setContentsMargins(14, 6, 14, 10)
-        layout.setSpacing(8)
+        layout.setContentsMargins(13, 6, 13, 11)
+        layout.setSpacing(9)
 
         # Top drag grabber bar
         layout.addWidget(DockGrabber(self))
@@ -209,8 +210,13 @@ class SideDock(QWidget):
         # Header with Capture, Clear, Pin, and Close buttons
         header = QHBoxLayout()
         header.setSpacing(5)
+        mark = QLabel()
+        mark.setPixmap(QApplication.instance().windowIcon().pixmap(24, 24))
         title = QLabel("SideDock")
-        title.setStyleSheet("font-size: 14px; font-weight: 700;")
+        title.setObjectName("BrandTitle")
+        self.capture_status = QLabel()
+        self.capture_status.setObjectName("StatusLabel")
+        self.update_capture_status()
 
         capture_btn = QPushButton("Capture")
         capture_btn.setObjectName("CaptureBtn")
@@ -233,15 +239,22 @@ class SideDock(QWidget):
         close_btn.setObjectName("CloseBtn")
         close_btn.setFixedSize(22, 22)
         close_btn.setCursor(Qt.PointingHandCursor)
+        close_btn.setToolTip("Quit SideDock")
+        close_btn.setAccessibleName("Quit SideDock")
         close_btn.clicked.connect(QApplication.quit)
 
+        header.addWidget(mark)
         header.addWidget(title)
         header.addStretch()
-        header.addWidget(capture_btn)
-        header.addWidget(clear_btn)
-        header.addWidget(self.pin_btn)
+        header.addWidget(self.capture_status)
         header.addWidget(close_btn)
         layout.addLayout(header)
+        toolbar = QHBoxLayout()
+        toolbar.setSpacing(5)
+        toolbar.addWidget(capture_btn, 2)
+        toolbar.addWidget(clear_btn, 1)
+        toolbar.addWidget(self.pin_btn, 1)
+        layout.addLayout(toolbar)
 
         # Stacked pages: [0] Items View, [1] Settings View
         self.pages = QStackedWidget()
@@ -251,11 +264,15 @@ class SideDock(QWidget):
         items_layout.setSpacing(8)
 
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Search text, files, or images...")
+        self.search_input.setPlaceholderText("Search your clipboard…")
+        self.search_input.setAccessibleName("Search clipboard")
         self.search_input.setClearButtonEnabled(True)
         self.search_input.mousePressEvent = self.on_search_click
         self.search_input.textChanged.connect(self.refresh_list)
         items_layout.addWidget(self.search_input)
+        self.history_status = QLabel()
+        self.history_status.setObjectName("StatusLabel")
+        items_layout.addWidget(self.history_status)
 
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
@@ -313,6 +330,7 @@ class SideDock(QWidget):
 
         # 7. Quick-Paste 8s popup + hotkeys
         self.quick_popup = QuickPastePopup(self.paste_item_now)
+        self.quick_popup.apply_theme(self.colors)
         self.trigger_after_paste_signal.connect(self.open_remaining_popup)
         self.trigger_all_slots_signal.connect(self.open_all_slots_popup)
         self.pick_slot_signal.connect(self.quick_popup.pick_number)
@@ -328,7 +346,7 @@ class SideDock(QWidget):
         self.update_monitor_mask()
 
     def setup_tray(self):
-        self.tray = QSystemTrayIcon(self.style().standardIcon(QStyle.SP_ComputerIcon), self)
+        self.tray = QSystemTrayIcon(QApplication.instance().windowIcon(), self)
         self.tray.setToolTip("SideDock")
         self.tray_menu = QMenu()
         self.tray_menu.addAction("Show dock", self.show_from_tray)
@@ -501,8 +519,13 @@ class SideDock(QWidget):
     def save_json(self, path, data):
         atomic_write_json(path, data)
 
+    def update_capture_status(self):
+        self.capture_status.setText("PAUSED" if self._capture_paused else "LOCAL")
+        self.capture_status.setToolTip("Automatic clipboard capture paused" if self._capture_paused else "Clipboard capture active; data stays on this PC")
+
     def set_capture_paused(self, paused):
         self._capture_paused = paused
+        self.update_capture_status()
         self.settings_panel.capture_button.blockSignals(True)
         self.settings_panel.capture_button.setChecked(paused)
         self.settings_panel.capture_button.blockSignals(False)
@@ -520,6 +543,8 @@ class SideDock(QWidget):
     def apply_theme(self, drag_highlight=False):
         self.colors = resolve_colors(self.settings)
         self.container.setStyleSheet(build_dock_qss(self.colors, drag_highlight))
+        if hasattr(self, "quick_popup"):
+            self.quick_popup.apply_theme(self.colors)
 
     def on_settings_changed(self):
         self.save_json(self.settings_file, self.settings)
@@ -711,7 +736,10 @@ class SideDock(QWidget):
 
     def expand(self):
         if self.settings.get("mode") == "windows":
+            previous = self.colors
             self.apply_theme()
+            if self.colors != previous:
+                self.refresh_list()
         self.is_expanded = True
         self.hover_watch.start(150)
         self.anim_group.stop()
@@ -853,81 +881,91 @@ class SideDock(QWidget):
         pinned = [it for it in self.saved_items if it.get("pinned")]
         unpinned = [it for it in self.saved_items if not it.get("pinned")]
 
-        for item in pinned + unpinned:
-            if self.matches_query(item, query):
-                self.render_item(item)
+        visible = [item for item in pinned + unpinned if self.matches_query(item, query)
+                   and (item["type"] not in ("file", "image") or Path(item["path"]).exists())]
+        self.history_status.setText(f"{len(visible)} SHOWN  ·  {len(pinned)} STARRED" if query else f"{len(visible)} ITEMS  ·  {len(pinned)} STARRED")
+        for item in visible:
+            self.render_item(item)
+        if not visible:
+            empty = QWidget()
+            empty_layout = QVBoxLayout(empty)
+            empty_layout.setContentsMargins(8, 35, 8, 15)
+            heading = QLabel("No matches" if query else "Your clipboard is ready")
+            heading.setObjectName("EmptyTitle")
+            heading.setAlignment(Qt.AlignCenter)
+            detail = QLabel("Try a different search." if query else "Copy something or drop a file here to get started.")
+            detail.setObjectName("SubLabel")
+            detail.setWordWrap(True)
+            detail.setAlignment(Qt.AlignCenter)
+            empty_layout.addWidget(heading)
+            empty_layout.addWidget(detail)
+            self.list_layout.insertWidget(0, empty)
         self.sync_list_width()
 
     def render_item(self, item):
-        if item["type"] in ("file", "image") and not Path(item["path"]).exists():
-            return
-
         card = DraggableCard(
-            item, self.colors["is_dark"], self.paste_item_now, self.set_drag_out_state
+            item, self.colors, self.paste_item_now, self.set_drag_out_state
         )
         card.setCursor(Qt.PointingHandCursor)
+        card.setToolTip("Click to copy and paste · Drag to another app")
+        body = QVBoxLayout(card)
+        body.setContentsMargins(10, 7, 9, 9)
+        body.setSpacing(5)
 
-        row = QHBoxLayout(card)
-        row.setContentsMargins(10, 8, 8, 8)
-        row.setSpacing(4)
+        top = QHBoxLayout()
+        top.setSpacing(4)
+        kind = QLabel(card_kind(item))
+        kind.setObjectName("CardMeta")
+        kind.setAttribute(Qt.WA_TransparentForMouseEvents)
+        top.addWidget(kind)
+        top.addStretch()
+
+        copied_badge = QLabel("Copied!")
+        copied_badge.setStyleSheet("background: #166534; color: white; border-radius: 5px; padding: 1px 5px; font-size: 10px;")
+        copied_badge.setAttribute(Qt.WA_TransparentForMouseEvents)
+        copied_badge.hide()
+        card.copied_badge = copied_badge
+        top.addWidget(copied_badge)
+
+        is_fav = item.get("pinned", False)
+        star_btn = QPushButton("★" if is_fav else "☆")
+        star_btn.setFixedSize(24, 24)
+        star_btn.setCursor(Qt.PointingHandCursor)
+        star_btn.setToolTip("Remove favorite" if is_fav else "Keep as favorite")
+        star_btn.setAccessibleName(star_btn.toolTip())
+        star_color = "#f4f4f5" if self.colors["is_dark"] else "#27272a"
+        muted = "#a1a1aa" if self.colors["is_dark"] else "#52525b"
+        star_btn.setStyleSheet(f"QPushButton {{ background: transparent; color: {star_color if is_fav else muted}; border: none; font-size: 16px; }}")
+        star_btn.clicked.connect(lambda _, it=item: self.toggle_favorite(it))
+        top.addWidget(star_btn)
+
+        remove_btn = QPushButton("×")
+        remove_btn.setObjectName("CloseBtn")
+        remove_btn.setFixedSize(24, 24)
+        remove_btn.setCursor(Qt.PointingHandCursor)
+        remove_btn.setToolTip("Remove item")
+        remove_btn.setAccessibleName("Remove clipboard item")
+        remove_btn.clicked.connect(lambda _, it=item: self.remove_item(it))
+        top.addWidget(remove_btn)
+        body.addLayout(top)
 
         content = QLabel()
         content.setObjectName("CardText")
         content.setTextFormat(Qt.PlainText)
         content.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
         content.setMinimumWidth(0)
+        content.setAttribute(Qt.WA_TransparentForMouseEvents)
         content.setStyleSheet("background: transparent; border: none; font-size: 12px;")
-
         if item["type"] == "image":
-            max_img_w = max(90, self.dock_width - 125)
-            pixmap = QPixmap(item["path"]).scaled(
-                max_img_w, 100, Qt.KeepAspectRatio, Qt.SmoothTransformation
-            )
+            max_img_w = max(90, self.dock_width - 65)
+            pixmap = QPixmap(item["path"]).scaled(max_img_w, 120, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             content.setPixmap(pixmap)
-        elif item["type"] == "file":
-            fname = re.sub(r"(\S{20})", lambda m: m.group(1) + "\u200b", item["name"])
-            content.setWordWrap(True)
-            content.setText(f"📄  {fname}")
         else:
-            text = item["content"]
-            preview = text if len(text) <= 110 else text[:107] + "..."
-            preview = re.sub(r"(\S{20})", lambda m: m.group(1) + "\u200b", preview)
+            text = item["name"] if item["type"] == "file" else item["content"]
+            preview = re.sub(r"(\S{20})", lambda m: m.group(1) + "\u200b", preview_text(text))
             content.setWordWrap(True)
             content.setText(preview)
-
-        copied_badge = QLabel("Copied!")
-        copied_badge.setStyleSheet(
-            "background: rgba(16, 185, 129, 200); color: white; border-radius: 6px; padding: 1px 5px; font-size: 10px;"
-        )
-        copied_badge.hide()
-        card.copied_badge = copied_badge
-
-        is_fav = item.get("pinned", False)
-        star_btn = QPushButton("★" if is_fav else "☆")
-        star_btn.setFixedSize(20, 20)
-        star_btn.setCursor(Qt.PointingHandCursor)
-        star_color = "#eab308" if is_fav else ("#94a3b8" if self.colors["is_dark"] else "#64748b")
-        star_btn.setStyleSheet(f"""
-            QPushButton {{ background: transparent; color: {star_color}; border: none; font-size: 13px; }}
-            QPushButton:hover {{ color: #fde047; }}
-        """)
-        star_btn.clicked.connect(lambda _, it=item: self.toggle_favorite(it))
-
-        remove_btn = QPushButton("×")
-        remove_btn.setObjectName("CloseBtn")
-        remove_btn.setFixedSize(20, 20)
-        remove_btn.setCursor(Qt.PointingHandCursor)
-        remove_btn.clicked.connect(lambda _, it=item: self.remove_item(it))
-
-        actions = QHBoxLayout()
-        actions.setSpacing(2)
-        actions.addWidget(copied_badge)
-        actions.addWidget(star_btn)
-        actions.addWidget(remove_btn)
-
-        row.addWidget(content, 1)
-        row.addLayout(actions)
-        row.setAlignment(actions, Qt.AlignTop | Qt.AlignRight)
+        body.addWidget(content)
         self.list_layout.insertWidget(self.list_layout.count() - 1, card)
 
     def toggle_favorite(self, item):
@@ -963,6 +1001,8 @@ class SideDock(QWidget):
 def main():
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
+    app.setApplicationName("SideDock")
+    app.setWindowIcon(app_icon())
     data_dir = Path.home() / "SideDockData"
     data_dir.mkdir(parents=True, exist_ok=True)
     lock = QLockFile(str(data_dir / "instance.lock"))
