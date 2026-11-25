@@ -2,14 +2,14 @@
 
 ## Automated evidence
 
-- [x] Original 12 Python unit tests passed on Windows; additional OCR, storage and theme tests added for the new candidate.
+- [x] 18 Python unit tests passed on the Windows runner (including OCR, storage, theme and installer contract tests).
 - [x] Source Qt smoke test passed.
 - [x] Windows portable executable built successfully.
 - [x] Packaged binary smoke test passed.
 - [x] SHA-256 checksum generated and artifact uploaded.
-- [ ] Per-user Windows installer passes its CI install, exact-binary and uninstall smoke tests.
+- [x] Per-user Windows installer passes its CI install, exact-binary and uninstall smoke tests.
 
-Evidence: [GitHub Actions run 45027136525](https://github.com/saileshchikkam/SideDock/actions/runs/45027136525), commit `2a12c4b`. These checks do not exercise global hooks or actual interactive Windows desktop behavior.
+Evidence: [Windows Actions run 45642152853](https://github.com/saileshchikkam/SideDock/actions/runs/45642152853), commit `24821d5`. Portable EXE, setup EXE and SHA-256 manifest were uploaded and verified. These automated checks do **not** exercise global hooks or actual interactive Windows desktop behavior.
 
 ## Real Windows desktop acceptance
 
