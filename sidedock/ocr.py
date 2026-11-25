@@ -50,7 +50,7 @@ def extract_text_from_png(png_bytes, executable=None, timeout=20):
         # PyInstaller sets the Windows DLL search path to its extraction root.
         # The bundled Tesseract DLLs reside beside tesseract.exe in /ocr, not
         # that root. Reset it while launching the helper to avoid DLL conflicts.
-        args = [binary, str(temporary), "stdout", "-l", "eng"]
+        args = [binary, str(temporary), "stdout", "-l", "eng", "--psm", "6"]
         if tessdata.is_dir():
             args.extend(["--tessdata-dir", str(tessdata)])
         environment["PATH"] = str(Path(binary).parent) + os.pathsep + environment.get("PATH", "")
