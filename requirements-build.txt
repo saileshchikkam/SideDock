@@ -1,2 +1,3 @@
 # Build tooling only; runtime dependencies come from pyproject.toml.
 PyInstaller>=6.10,<7
+Pillow>=10,<13 # build-time OCR fixture only; not required by app

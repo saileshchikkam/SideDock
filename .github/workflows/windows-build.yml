@@ -36,7 +36,11 @@ jobs:
       - name: Check source smoke test
         run: python -m sidedock --smoke-test
       - name: Check source OCR against bundled language data
-        run: python -m sidedock --smoke-test-ocr
+        shell: pwsh
+        run: |
+          python scripts/create_ocr_fixture.py
+          python -m sidedock --smoke-test-ocr build/ocr-smoke-fixture.png
+          if ($LASTEXITCODE -ne 0) { Get-Content build/ocr-smoke-diagnostic.txt; exit 1 }
       - name: Build and verify executable
         run: python scripts/build_windows.py
       - name: Build and smoke-test per-user installer

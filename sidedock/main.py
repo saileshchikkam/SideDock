@@ -1282,27 +1282,26 @@ def main():
     app.setApplicationVersion(__version__)
     app.setWindowIcon(app_icon())
     if "--smoke-test-ocr" in sys.argv:
-        # Exercise the embedded Tesseract runtime and its English language data.
-        from PySide6.QtGui import QColor, QFont, QPainter
-        picture = QImage(1200, 230, QImage.Format_RGB32)
-        picture.fill(QColor("white"))
-        pen = QPainter(picture)
-        pen.setPen(QColor("black"))
-        pen.setFont(QFont("Arial", 72, QFont.Bold))
-        pen.drawText(picture.rect(), Qt.AlignCenter, "SIDEDOCK")
-        pen.end()
-        encoded = QByteArray()
-        buffer = QBuffer(encoded)
-        buffer.open(QIODevice.WriteOnly)
-        picture.save(buffer, "PNG")
-        buffer.close()
+        # Test a true high-contrast file fixture created outside the packaged
+        # executable. The OCR model must actually recognize its text.
+        path_index = sys.argv.index("--smoke-test-ocr")
+        sample_path = (Path(sys.argv[path_index + 1]) if path_index + 1 < len(sys.argv)
+                       else Path("build/ocr-smoke-fixture.png"))
         try:
+            picture = QImage(str(sample_path))
+            if picture.isNull():
+                raise RuntimeError(f"Unusable OCR smoke fixture: {sample_path}")
+            encoded = QByteArray()
+            buffer = QBuffer(encoded)
+            buffer.open(QIODevice.WriteOnly)
+            if not picture.save(buffer, "PNG"):
+                raise RuntimeError("Could not encode OCR fixture as PNG")
+            buffer.close()
             result = extract_text_from_png(bytes(encoded)).replace(" ", "").upper()
             Path("build").mkdir(exist_ok=True)
             Path("build/ocr-smoke-diagnostic.txt").write_text(
-                "engine_found=" + str(bool(find_tesseract())) + "\\n" +
-                "recognized=" + repr(result[:150]) + "\\n",
-                encoding="utf-8",
+                "engine_found=" + str(bool(find_tesseract())) + "\n" +
+                "recognized=" + repr(result[:150]) + "\n", encoding="utf-8",
             )
             if "SIDEDOCK" not in result:
                 raise RuntimeError("Bundled OCR returned unexpected text: " + repr(result[:150]))
