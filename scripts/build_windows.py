@@ -56,16 +56,23 @@ def main():
     icon_path.write_bytes(ico_bytes(images))
     version_path = output / "version.txt"
     version_path.write_text(version_resource(), encoding="utf-8")
+    ocr_root = Path(os.environ.get("SIDEDOCK_OCR_DIR", ""))
+    if not os.environ.get("SIDEDOCK_OCR_DIR") or not (ocr_root / "tesseract.exe").is_file():
+        raise RuntimeError("SIDEDOCK_OCR_DIR must point to a Tesseract OCR installation for this release")
+    if not (ocr_root / "tessdata" / "eng.traineddata").is_file():
+        raise RuntimeError("English OCR language model is missing")
     subprocess.run([
         sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean",
         "--onefile", "--noconsole", "--name", "SideDock",
         "--icon", str(icon_path), "--version-file", str(version_path),
+        "--add-data", f"{ocr_root};ocr",
         "--paths", str(ROOT), "--specpath", str(output),
         "--workpath", str(output / "work"), "--distpath", str(ROOT / "dist"),
         str(ROOT / "sidedock" / "__main__.py"),
     ], cwd=ROOT, check=True)
     exe = ROOT / "dist" / "SideDock.exe"
     subprocess.run([str(exe), "--smoke-test"], cwd=ROOT, check=True, timeout=120)
+    subprocess.run([str(exe), "--smoke-test-ocr"], cwd=ROOT, check=True, timeout=120)
     (exe.parent / "SHA256SUMS.txt").write_text(checksum_line(exe), encoding="ascii")
     print(f"Verified build: {exe}")
 

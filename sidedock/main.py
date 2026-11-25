@@ -36,9 +36,6 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QMessageBox,
-    QDialog,
-    QDialogButtonBox,
-    QPlainTextEdit,
     QMenu,
     QSystemTrayIcon,
     QPushButton,
@@ -57,6 +54,8 @@ from sidedock.presentation import card_kind, preview_text
 from sidedock.interaction import shortcut_keys, select_paste_target
 from sidedock.storage import atomic_write_json, can_capture, file_digest, managed_bytes, orphaned_managed_copies, cleanup_orphaned_copies, MAX_FILE_BYTES, MAX_TEXT_BYTES, MAX_MANAGED_BYTES
 from sidedock.ocr import find_tesseract, extract_text_from_png
+from sidedock.composer import NoteComposer, OCRWorkspace
+from sidedock.region_capture import RegionCaptureOverlay
 from sidedock.theme import build_dock_qss, resolve_colors
 from sidedock.widgets import (
     DraggableCard,
@@ -143,8 +142,9 @@ class SideDock(QWidget):
         self._paste_generation = 0
         self._hotkey_removers = []
         self._slot_removers = []
-        self._ocr_waiting = False
+        self._editing = False
         self._ocr_request_id = 0
+        self._region_overlay = None
 
         # 1. Local PC storage setup
         self.data_dir = Path.home() / "SideDockData"
@@ -337,6 +337,11 @@ class SideDock(QWidget):
         settings_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         settings_scroll.setWidget(self.settings_panel)
         self.pages.addWidget(settings_scroll)
+        self.note_composer = NoteComposer(self.save_composed_note, self.cancel_note_editor)
+        self.pages.addWidget(self.note_composer)
+        self.ocr_workspace = OCRWorkspace(self.start_region_ocr, self.ocr_from_clipboard,
+                                          self.ocr_from_recent, self.leave_ocr_workspace)
+        self.pages.addWidget(self.ocr_workspace)
         layout.addWidget(self.pages)
 
         # Bottom bar: mirrors resize grip & Settings ⚙ depending on Left/Right edge
@@ -626,47 +631,62 @@ class SideDock(QWidget):
         self.pages.setCurrentIndex(1 if self.pages.currentIndex() == 0 else 0)
         self.refresh_storage_usage()
 
+    def _enable_editor_focus(self):
+        """Allow keyboard focus while editing within the dock."""
+        self._editing = True
+        self.hide_timer.stop()
+        self.hover_watch.stop()
+        self.anim_group.stop()
+        self.move(self.x_shown, self.y_pos)
+        self.is_expanded = True
+        self.setWindowOpacity(0.98)
+        hwnd = int(self.winId())
+        current = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
+        self.show()
+        user32.SetWindowLongW(hwnd, GWL_EXSTYLE, current & ~WS_EX_NOACTIVATE)
+        self.activateWindow()
+        self.note_composer.editor.setFocus(Qt.OtherFocusReason)
+
     def open_note_editor(self, initial="", source="note"):
         if not can_capture(self.saved_items):
-            QMessageBox.information(self, "SideDock", "History is full. Remove an item before adding a note.")
+            if source == "ocr":
+                self.ocr_workspace.set_status("History is full. Remove a card before saving.")
+                self.pages.setCurrentIndex(3)
+            else:
+                self.history_status.setText("HISTORY FULL — remove an item first")
             return
-        dialog = QDialog(self)
-        dialog.setWindowTitle("Review extracted text · SideDock" if source == "ocr" else "Add Note · SideDock")
-        dialog.setMinimumSize(330, 260)
-        dark = self.colors["is_dark"]
-        bg = "#111216" if dark else "#f6f6f8"
-        surface = "#23242a" if dark else "#ffffff"
-        fg = "#f5f5f5" if dark else "#171717"
-        border = "#4b4b55" if dark else "#c6c6ce"
-        dialog.setStyleSheet(f"QDialog {{ background: {bg}; }} QLabel {{ color: {fg}; }} "
-                             f"QPlainTextEdit {{ background: {surface}; color: {fg}; border: 1px solid {border}; "
-                             f"border-radius: 9px; padding: 8px; }} "
-                             f"QPushButton {{ background: {surface}; color: {fg}; border: 1px solid {border}; "
-                             f"border-radius: 8px; padding: 6px 12px; }} "
-                             f"QPushButton:hover {{ border-color: #a1a1aa; }}")
-        editor_layout = QVBoxLayout(dialog)
-        description = QLabel("Review OCR output before saving locally." if source == "ocr" else "Write a note to save locally in SideDock.")
-        editor_layout.addWidget(description)
-        editor = QPlainTextEdit()
-        editor.setAccessibleName("Note text")
-        editor.setPlaceholderText("Write a note or save a reusable snippet…")
-        if initial:
-            editor.setPlainText(initial)
-        editor_layout.addWidget(editor)
-        controls = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
-        controls.accepted.connect(dialog.accept)
-        controls.rejected.connect(dialog.reject)
-        editor_layout.addWidget(controls)
-        if dialog.exec() != QDialog.Accepted:
+        self.note_composer.set_content(initial, source)
+        self.pages.setCurrentIndex(2)
+        self._enable_editor_focus()
+
+    def _finish_editing(self):
+        self._editing = False
+        self.note_composer.editor.clearFocus()
+        self.restore_no_activate()
+        self.pages.setCurrentIndex(0)
+        self.refresh_list()
+
+    def cancel_note_editor(self):
+        self._finish_editing()
+
+    def save_composed_note(self, content, source):
+        if not content.strip():
+            self.note_composer.show_error("Write some text before saving.")
             return
-        value = editor.toPlainText()
-        if not value.strip():
+        if len(content.encode("utf-8")) > MAX_TEXT_BYTES:
+            self.note_composer.show_error("Maximum note size is 256 KiB.")
             return
-        if len(value.encode("utf-8")) > MAX_TEXT_BYTES:
-            QMessageBox.warning(self, "SideDock", "Notes cannot exceed 256 KiB.")
+        if not can_capture(self.saved_items):
+            self.note_composer.show_error("History is full. Remove a card first.")
             return
-        item = {"type": "text", "content": value, "source": "ocr"} if source == "ocr" else {"type": "note", "content": value}
-        self.record_new_item(item, rapid=False)
+        entry = ({"type": "text", "content": content, "source": "ocr"}
+                 if source == "ocr" else {"type": "note", "content": content})
+        try:
+            self.record_new_item(entry, rapid=False)
+        except (OSError, ValueError) as exc:
+            self.note_composer.show_error(f"Unable to save note: {exc}")
+            return
+        self._finish_editing()
 
     def refresh_storage_usage(self):
         try:
@@ -810,56 +830,105 @@ class SideDock(QWidget):
      super().resizeEvent(event)
 
     def trigger_ocr_capture(self):
-        if not find_tesseract():
-            QMessageBox.information(self, "Text OCR setup",
-                "Offline text extraction requires Tesseract OCR installed on this PC. Install Tesseract, then restart SideDock. Screenshots will never be uploaded.")
-            return
-        self._ocr_request_id += 1
-        request_id = self._ocr_request_id
-        self._ocr_waiting = True
-        self.trigger_capture()
-        QTimer.singleShot(35000, lambda: self.cancel_ocr_wait(request_id))
+        """Open OCR controls inside SideDock, never the external Snipping Tool."""
+        self.ocr_workspace.set_status(
+            "Select a region, clipboard image or saved screenshot. Processing stays local."
+        )
+        self.pages.setCurrentIndex(3)
+        self.expand()
 
-    def cancel_ocr_wait(self, request_id):
-        if request_id == self._ocr_request_id:
-            self._ocr_waiting = False
+    def leave_ocr_workspace(self):
+        self.pages.setCurrentIndex(0)
+        self.refresh_list()
 
-    def begin_ocr_from_clipboard(self, mime):
-        if not mime or not mime.hasImage() or not self._ocr_waiting:
+    def start_region_ocr(self):
+        self.ocr_workspace.set_status("Drag across the screen to select text. Esc cancels.")
+        self.collapse(force=True)
+        QTimer.singleShot(320, self._show_region_overlay)
+
+    def _show_region_overlay(self):
+        screen = QGuiApplication.screenAt(QCursor.pos()) or self.monitor
+        if screen is None:
+            self.ocr_workspace.set_status("No active screen found.")
+            self.expand()
             return
-        picture = QImage(mime.imageData())
-        if picture.isNull():
+        overlay = RegionCaptureOverlay(screen)
+        self._region_overlay = overlay
+        overlay.captured.connect(self._on_region_captured)
+        overlay.cancelled.connect(self._on_region_cancelled)
+        overlay.show()
+        overlay.raise_()
+        overlay.activateWindow()
+        overlay.setFocus(Qt.OtherFocusReason)
+
+    def _on_region_cancelled(self):
+        self._region_overlay = None
+        self.ocr_workspace.set_status("Selection cancelled.")
+        self.expand()
+
+    def _on_region_captured(self, image):
+        self._region_overlay = None
+        self.expand()
+        self._start_ocr_worker(image)
+
+    def ocr_from_clipboard(self):
+        mime = self.clipboard.mimeData()
+        if mime is None or not mime.hasImage():
+            self.ocr_workspace.set_status("No image is on the clipboard. Copy a screenshot first.")
             return
-        from PySide6.QtCore import QBuffer, QByteArray, QIODevice
-        buffer_bytes = QByteArray()
-        buffer = QBuffer(buffer_bytes)
+        self._start_ocr_worker(QImage(mime.imageData()))
+
+    def ocr_from_recent(self):
+        saved_image = next((item for item in self.saved_items
+                            if item.get("type") == "image"
+                            and Path(item.get("path", "")).is_file()), None)
+        if saved_image is None:
+            self.ocr_workspace.set_status("No saved image found in SideDock history.")
+            return
+        self._start_ocr_worker(QImage(saved_image["path"]))
+
+    def _start_ocr_worker(self, image):
+        if image.isNull():
+            self.ocr_workspace.set_status("The selected image could not be read.")
+            return
+        engine = find_tesseract()
+        if not engine:
+            self.ocr_workspace.set_status(
+                "OCR engine unavailable in this installation. Use the new build with "
+                "bundled OCR or install Tesseract locally."
+            )
+            return
+        encoded = QByteArray()
+        buffer = QBuffer(encoded)
         buffer.open(QIODevice.WriteOnly)
-        saved = picture.save(buffer, "PNG")
+        saved = image.save(buffer, "PNG")
         buffer.close()
         if not saved:
+            self.ocr_workspace.set_status("Could not prepare image for OCR.")
             return
-        self._ocr_waiting = False
-        request_id = self._ocr_request_id
-        png_bytes = bytes(buffer_bytes)
+        png = bytes(encoded)
+        self._ocr_request_id += 1
+        current = self._ocr_request_id
+        self.ocr_workspace.set_status("Recognizing text locally…")
         def worker():
             try:
-                result = extract_text_from_png(png_bytes)
-                self.ocr_ready_signal.emit(request_id, result)
+                text = extract_text_from_png(png, executable=engine)
+                self.ocr_ready_signal.emit(current, text)
             except (OSError, ValueError, subprocess.SubprocessError) as exc:
-                self.ocr_error_signal.emit(request_id, str(exc))
+                self.ocr_error_signal.emit(current, str(exc))
         threading.Thread(target=worker, daemon=True).start()
 
     def on_ocr_ready(self, request_id, content):
         if request_id != self._ocr_request_id:
             return
         if not content.strip():
-            QMessageBox.information(self, "Text OCR", "No recognizable text found in the screenshot.")
+            self.ocr_workspace.set_status("No readable text was found. Try a larger selection.")
             return
         self.open_note_editor(initial=content, source="ocr")
 
     def on_ocr_error(self, request_id, message):
         if request_id == self._ocr_request_id:
-            QMessageBox.warning(self, "Text OCR", "Could not extract screenshot text: " + message)
+            self.ocr_workspace.set_status("OCR failed: " + message[:180])
 
     def trigger_capture(self):
         self.collapse(force=True)
@@ -880,6 +949,7 @@ class SideDock(QWidget):
     def attempt_collapse(self):
             if (
                 self.is_pinned
+                or self._editing
                 or self._is_dragging_out
                 or self._is_dragging_dock
                 or (QApplication.mouseButtons() & Qt.LeftButton)
@@ -899,7 +969,7 @@ class SideDock(QWidget):
         super().enterEvent(event)
 
     def leaveEvent(self, event):
-        if not self.is_pinned and not self._is_dragging_out and not self._is_dragging_dock:
+        if not self.is_pinned and not self._editing and not self._is_dragging_out and not self._is_dragging_dock:
             self.hide_timer.start(300)
         super().leaveEvent(event)
 
@@ -973,8 +1043,6 @@ class SideDock(QWidget):
         if ctypes.windll.user32.IsClipboardFormatAvailable(EXCLUDE_CLIPBOARD_FMT):
             return
         mime = self.clipboard.mimeData()
-        if self._ocr_waiting:
-            self.begin_ocr_from_clipboard(mime)
         if self._capture_paused:
             return
         self.safe_process_mime(mime)
@@ -1213,12 +1281,35 @@ def main():
     app.setApplicationName("SideDock")
     app.setApplicationVersion(__version__)
     app.setWindowIcon(app_icon())
+    if "--smoke-test-ocr" in sys.argv:
+        # Exercise the embedded Tesseract runtime and its English language data.
+        from PySide6.QtGui import QColor, QFont, QPainter
+        picture = QImage(1200, 230, QImage.Format_RGB32)
+        picture.fill(QColor("white"))
+        pen = QPainter(picture)
+        pen.setPen(QColor("black"))
+        pen.setFont(QFont("Arial", 72, QFont.Bold))
+        pen.drawText(picture.rect(), Qt.AlignCenter, "SIDEDOCK")
+        pen.end()
+        encoded = QByteArray()
+        buffer = QBuffer(encoded)
+        buffer.open(QIODevice.WriteOnly)
+        picture.save(buffer, "PNG")
+        buffer.close()
+        result = extract_text_from_png(bytes(encoded)).replace(" ", "").upper()
+        if "SIDEDOCK" not in result:
+            raise SystemExit("Bundled OCR verification failed: " + result[:100])
+        return
     if "--smoke-test" in sys.argv:
         # Exercise packaged Qt resources without reading user data, registering
         # global hooks, or monitoring the clipboard.
         colors = resolve_colors({"mode": "deep_dark"})
         popup = QuickPastePopup(lambda _: None)
         popup.apply_theme(colors)
+        composer = NoteComposer(lambda *_: None, lambda: None)
+        composer.set_content("A sample note")
+        ocr_panel = OCRWorkspace(lambda: None, lambda: None, lambda: None, lambda: None)
+        ocr_panel.set_status("Ready")
         panel = SettingsPanel({}, lambda: None, lambda _: None, lambda: None)
         panel.add_capture_control(False, lambda _: None)
         panel.add_shortcut_controls(lambda *_: None)
@@ -1230,7 +1321,7 @@ def main():
         scroll.setWidget(panel)
         card = DraggableCard({"type": "text", "content": "test"}, colors, lambda _: None, lambda _: None)
         note = DraggableCard({"type": "note", "content": "Manual note"}, colors, lambda _: None, lambda _: None)
-        if not panel.shortcut_toggle.isChecked() or not hasattr(panel, "storage_usage"):
+        if not panel.shortcut_toggle.isChecked() or not hasattr(panel, "storage_usage") or composer.editor.toPlainText() != "A sample note":
             raise SystemExit(2)
         if app.windowIcon().isNull() or not build_dock_qss(colors):
             raise SystemExit(2)

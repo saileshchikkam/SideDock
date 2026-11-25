@@ -6,10 +6,16 @@ import os
 import shutil
 import subprocess
 import tempfile
+import sys
 from pathlib import Path
 
 
 def find_tesseract():
+    # In packaged builds, prefer the runtime shipped with SideDock over
+    # machine-wide installations. It is extracted by PyInstaller on launch.
+    bundle = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent)) / "ocr" / "tesseract.exe"
+    if bundle.is_file():
+        return str(bundle)
     binary = shutil.which("tesseract")
     if binary:
         return binary
@@ -34,6 +40,12 @@ def extract_text_from_png(png_bytes, executable=None, timeout=20):
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as stream:
             stream.write(png_bytes)
             temporary = Path(stream.name)
+        # A bundled tessdata directory keeps OCR fully offline and independent
+        # of any machine-wide language model or registry configuration.
+        environment = os.environ.copy()
+        tessdata = Path(binary).parent / "tessdata"
+        if tessdata.is_dir():
+            environment["TESSDATA_PREFIX"] = str(tessdata)
         result = subprocess.run(
             [binary, str(temporary), "stdout", "-l", "eng"],
             capture_output=True,
@@ -41,6 +53,7 @@ def extract_text_from_png(png_bytes, executable=None, timeout=20):
             encoding="utf-8",
             errors="replace",
             timeout=timeout,
+            env=environment,
             check=True,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
