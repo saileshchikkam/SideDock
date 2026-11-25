@@ -23,12 +23,14 @@ SideDock hides at the edge of your screen until you need it. Collect a screensho
 
 ## Try the Windows release candidate
 
-1. Open the [successful Windows build](https://github.com/saileshchikkam/SideDock/actions/runs/45027136525).
-2. Download the **SideDock-Windows** artifact (GitHub sign-in may be required; artifacts expire).
-3. Extract the ZIP to a permanent folder, verify the checksum, and run `SideDock.exe`.
-4. Hover over the right screen edge to open SideDock.
+1. Open the [Windows build workflow](https://github.com/saileshchikkam/SideDock/actions/workflows/windows-build.yml), then select the latest **successful run on `release/v1.0-hardening`**.
+2. Download the **SideDock-Windows** artifact from the run's *Artifacts* section (GitHub sign-in may be required; artifacts expire).
+3. Extract its ZIP. Run **`SideDock-Setup-1.0.0.exe`** to install, or **`SideDock.exe`** to use the portable version.
+4. Launch SideDock and hover over the right screen edge.
 
-No Python installation is required for the portable executable. It is unsigned, so Windows may display a trust warning. Do not bypass security warnings unless you have verified the source and checksum and trust the publisher.
+Neither installer nor portable executable requires Python on the destination PC. Both are currently unsigned and may trigger a Windows SmartScreen warning. Scan the file and verify its checksum before deciding whether to trust it.
+
+**Installer behavior:** installs per-user without administrator permission, creates a Start Menu shortcut and an optional desktop shortcut, and registers a normal uninstaller. Uninstall preserves `%USERPROFILE%\SideDockData` (including history, notes and copied files), which must be managed separately. Before upgrading from the portable build, quit it and disable **Start with Windows** to avoid a stale startup entry.
 
 Verify the SHA-256 digest in PowerShell:
 
@@ -37,7 +39,7 @@ Get-FileHash .\SideDock.exe -Algorithm SHA256
 Get-Content .\SHA256SUMS.txt
 ```
 
-Compare the hashes before running the file.
+Compare the hash of the file you intend to run (`SideDock.exe` or `SideDock-Setup-1.0.0.exe`) with its corresponding line in `SHA256SUMS.txt`.
 
 ### Install from source
 
@@ -94,9 +96,10 @@ python -m pip install -e . -r requirements-build.txt
 python -m unittest discover -s tests -v
 python -m sidedock --smoke-test
 python scripts/build_windows.py
+python scripts/build_installer.py  # requires Inno Setup 6
 ```
 
-Build on Windows with Python 3.12. Outputs: `dist/SideDock.exe` and `dist/SHA256SUMS.txt`. GitHub Actions builds and uploads the portable package after the checks succeed; it does not publish releases automatically.
+Build on Windows with Python 3.12 and Inno Setup 6. Outputs: `dist/SideDock.exe`, `dist/SideDock-Setup-1.0.0.exe` and `dist/SHA256SUMS.txt` (checksums for both binaries). CI also performs a silent install, checks the installed EXE matches the portable release, and tests uninstall in a disposable folder. GitHub Actions uploads both packages but does not publish a stable release automatically.
 
 ## Release information
 

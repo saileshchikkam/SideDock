@@ -26,6 +26,8 @@
 - Removed LOCAL from the dock header; PAUSED remains visible when capture is disabled.
 
 ### Distribution
+- New per-user Inno Setup Windows installer with normal uninstall, Start Menu shortcut, optional desktop shortcut, MIT license and no admin requirement.
+- Automated install → exact-binary verification → uninstall smoke test. Clipboard data is preserved.
 - Portable Windows executable with version information, icon and SHA-256 checksum.
 - Shared per-user startup integration for Python and executable installs.
 - GitHub Actions Windows build and isolated source and binary smoke tests.
@@ -35,4 +37,4 @@
 - Clipboard history and stored copies are not encrypted.
 - Executable is unsigned.
 - No automatic update mechanism; release artifacts are static snapshots.
-- License selection and stable publication are pending.
+- MIT License is included; stable publication still awaits native Windows acceptance testing.

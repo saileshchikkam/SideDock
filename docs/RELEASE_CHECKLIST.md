@@ -7,6 +7,7 @@
 - [x] Windows portable executable built successfully.
 - [x] Packaged binary smoke test passed.
 - [x] SHA-256 checksum generated and artifact uploaded.
+- [ ] Per-user Windows installer passes its CI install, exact-binary and uninstall smoke tests.
 
 Evidence: [GitHub Actions run 45027136525](https://github.com/saileshchikkam/SideDock/actions/runs/45027136525), commit `2a12c4b`. These checks do not exercise global hooks or actual interactive Windows desktop behavior.
 
@@ -17,6 +18,8 @@ Use a non-sensitive test profile and disposable files. Start with the candidate 
 | Test | Expected result | Result |
 | --- | --- | --- |
 | Launch portable EXE | Dock appears at chosen screen edge; no Python required | Pending |
+| Install SideDock setup | Per-user install, Start Menu shortcut and optional desktop shortcut, without elevation | Pending |
+| Uninstall SideDock setup | Program removed; saved SideDockData history/notes remain intact | Pending |
 | Second instance | No second clipboard watcher/dock | Pending |
 | Hover and collapse | No flicker while stationary at edge | Pending |
 | Resize at min/max size | Header, card controls and scrolling remain usable | Pending |
@@ -54,6 +57,7 @@ Test at least one Windows 10 and one Windows 11 environment before claiming both
 - [ ] Privacy and unsigned executable limitations acknowledged.
 - [ ] Maintainer reviews and approves merge to main.
 - [ ] Final main build passes.
+- [ ] Installer tested on real Windows 10 and Windows 11 desktops.
 - [ ] Maintainer creates the version tag and publishes the matching executable and checksum to GitHub Releases.
 - [ ] Verify published assets and their hashes after publication.
 
