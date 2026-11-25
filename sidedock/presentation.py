@@ -5,6 +5,10 @@ from urllib.parse import urlsplit
 
 def card_kind(item):
     kind = item.get("type")
+    if kind == "note":
+        return "NOTE"
+    if item.get("source") == "ocr":
+        return "OCR TEXT"
     if kind == "image":
         return "IMAGE"
     if kind == "file":

@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
+    QComboBox,
     QPushButton,
     QProgressBar,
     QVBoxLayout,
@@ -35,8 +36,8 @@ class DraggableCard(QFrame):
 
     def apply_default_style(self):
         favorite = self.item.get("pinned", False)
-        bg = "rgba(255,255,255,14)" if self.is_dark else "rgba(0,0,0,10)"
-        border = ("#71717a" if self.is_dark else "#a1a1aa") if favorite else ("#303036" if self.is_dark else "#d4d4d8")
+        bg = "rgba(255,255,255,23)" if self.is_dark else "rgba(0,0,0,10)"
+        border = ("#71717a" if self.is_dark else "#a1a1aa") if favorite else ("#41414b" if self.is_dark else "#d4d4d8")
         r, g, b = self.accent
         self.setStyleSheet(f"""
             QFrame#ClipboardCard {{
@@ -356,6 +357,44 @@ class SettingsPanel(QWidget):
         note.setObjectName("SubLabel")
         note.setWordWrap(True)
         self.layout().insertWidget(self.layout().count() - 1, note)
+
+    def add_shortcut_controls(self, callback):
+        """Expose shortcut state immediately below the capture control."""
+        layout = self.layout()
+        hint = QLabel("KEYBOARD SHORTCUTS")
+        hint.setObjectName("SubLabel")
+        layout.insertWidget(layout.count() - 1, hint)
+        self.shortcut_toggle = QPushButton("Enable global shortcuts")
+        self.shortcut_toggle.setObjectName("ModeBtn")
+        self.shortcut_toggle.setCheckable(True)
+        self.shortcut_toggle.setToolTip("Disable if shortcuts conflict with other applications")
+        self.shortcut_toggle.setChecked(bool(self.settings.get("shortcuts_enabled", True)))
+        self.shortcut_toggle.toggled.connect(lambda enabled: callback("enabled", enabled))
+        layout.insertWidget(layout.count() - 1, self.shortcut_toggle)
+        self.shortcut_preset = QComboBox()
+        self.shortcut_preset.addItem("Classic shortcuts", "classic")
+        self.shortcut_preset.addItem("Alternative shortcuts", "alternative")
+        self.shortcut_preset.setToolTip("Choose keyboard shortcuts for Quick-Paste")
+        self.shortcut_preset.currentIndexChanged.connect(lambda _: callback("preset", self.shortcut_preset.currentData()))
+        layout.insertWidget(layout.count() - 1, self.shortcut_preset)
+        self.shortcut_info = QLabel()
+        self.shortcut_info.setObjectName("SubLabel")
+        self.shortcut_info.setWordWrap(True)
+        layout.insertWidget(layout.count() - 1, self.shortcut_info)
+        self.sync_shortcut_controls()
+
+    def sync_shortcut_controls(self):
+        if not hasattr(self, "shortcut_toggle"):
+            return
+        for control in (self.shortcut_toggle, self.shortcut_preset):
+            control.blockSignals(True)
+        self.shortcut_toggle.setChecked(bool(self.settings.get("shortcuts_enabled", True)))
+        preset = self.settings.get("shortcut_preset", "classic")
+        self.shortcut_preset.setCurrentIndex(1 if preset == "alternative" else 0)
+        for control in (self.shortcut_toggle, self.shortcut_preset):
+            control.blockSignals(False)
+        binding = "Ctrl+Alt+V · Ctrl+Shift+Alt+1/2/3" if preset == "alternative" else "Ctrl+Shift+V · Ctrl+Alt+1/2/3"
+        self.shortcut_info.setText("Open Quick-Paste · Select visible slots\n" + binding + "\nCtrl+V pastes normally and may show remaining slots.")
 
     def sync_buttons(self):
         current_mode = self.settings.get("mode", "deep_dark")

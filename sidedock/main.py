@@ -35,6 +35,9 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QMessageBox,
+    QDialog,
+    QDialogButtonBox,
+    QPlainTextEdit,
     QMenu,
     QSystemTrayIcon,
     QPushButton,
@@ -220,20 +223,22 @@ class SideDock(QWidget):
         self.capture_status.setObjectName("StatusLabel")
         self.update_capture_status()
 
-        capture_btn = QPushButton("Capture")
+        capture_btn = QPushButton("Screenshot")
+        capture_btn.setToolTip("Capture a screen region using Windows Snipping Tool")
         capture_btn.setObjectName("CaptureBtn")
         capture_btn.setCursor(Qt.PointingHandCursor)
         capture_btn.clicked.connect(self.trigger_capture)
 
         clear_btn = QPushButton("Clear")
         clear_btn.setObjectName("HeaderBtn")
-        clear_btn.setToolTip("Clear unstarred items")
+        clear_btn.setToolTip("Remove all unstarred history items (cannot be undone)")
         clear_btn.setCursor(Qt.PointingHandCursor)
         clear_btn.clicked.connect(self.clear_unpinned)
 
         self.pin_btn = QPushButton("Pin")
         self.pin_btn.setObjectName("HeaderBtn")
         self.pin_btn.setCheckable(True)
+        self.pin_btn.setToolTip("Keep SideDock expanded until you unpin it")
         self.pin_btn.setCursor(Qt.PointingHandCursor)
         self.pin_btn.toggled.connect(self.toggle_pin)
 
@@ -270,8 +275,18 @@ class SideDock(QWidget):
         self.search_input.setAccessibleName("Search clipboard")
         self.search_input.setClearButtonEnabled(True)
         self.search_input.mousePressEvent = self.on_search_click
+        self.search_input.setToolTip("Find text, notes, image cards and file names")
         self.search_input.textChanged.connect(self.refresh_list)
         items_layout.addWidget(self.search_input)
+        add_row = QHBoxLayout()
+        add_row.addStretch()
+        self.add_note_button = QPushButton("+ Add Note")
+        self.add_note_button.setObjectName("NoteBtn")
+        self.add_note_button.setToolTip("Create a local text note without using the clipboard")
+        self.add_note_button.setCursor(Qt.PointingHandCursor)
+        self.add_note_button.clicked.connect(self.open_note_editor)
+        add_row.addWidget(self.add_note_button)
+        items_layout.addLayout(add_row)
         self.history_status = QLabel()
         self.history_status.setObjectName("StatusLabel")
         items_layout.addWidget(self.history_status)
@@ -300,6 +315,7 @@ class SideDock(QWidget):
             lambda: self.pages.setCurrentIndex(0),
         )
         self.settings_panel.add_capture_control(self._capture_paused, self.set_capture_paused)
+        self.settings_panel.add_shortcut_controls(self.on_shortcut_settings_changed)
         self.pages.addWidget(items_page)
         self.pages.addWidget(self.settings_panel)
         layout.addWidget(self.pages)
@@ -314,6 +330,7 @@ class SideDock(QWidget):
         self.gear_btn = QPushButton("Settings ⚙")
         self.gear_btn.setObjectName("GearBtn")
         self.gear_btn.setCursor(Qt.PointingHandCursor)
+        self.gear_btn.setToolTip("Themes, monitor position, keyboard shortcuts and privacy")
         self.gear_btn.clicked.connect(self.toggle_settings)
 
         self.update_footer_layout()
@@ -404,6 +421,7 @@ class SideDock(QWidget):
 
     def set_shortcut_preset(self, preset):
         self.settings["shortcut_preset"] = preset
+        self.settings_panel.sync_shortcut_controls()
         self.save_json(self.settings_file, self.settings)
         self.quick_popup.dismiss()
         self.register_hotkeys()
@@ -437,9 +455,21 @@ class SideDock(QWidget):
 
     def set_shortcuts_enabled(self, enabled):
         self.settings["shortcuts_enabled"] = enabled
+        self.settings_panel.sync_shortcut_controls()
+        if hasattr(self, "tray_shortcuts"):
+            self.tray_shortcuts.blockSignals(True)
+            self.tray_shortcuts.setChecked(enabled)
+            self.tray_shortcuts.blockSignals(False)
         self.save_json(self.settings_file, self.settings)
         self.quick_popup.dismiss()
         self.register_hotkeys()
+
+    def on_shortcut_settings_changed(self, kind, value):
+        if kind == "enabled":
+            self.set_shortcuts_enabled(bool(value))
+        elif kind == "preset":
+            self.set_shortcut_preset(value)
+        self.refresh_list()
 
     def on_screen_added(self, screen):
         screen.availableGeometryChanged.connect(self.on_monitor_geometry_changed)
@@ -539,7 +569,7 @@ class SideDock(QWidget):
         atomic_write_json(path, data)
 
     def update_capture_status(self):
-        self.capture_status.setText("PAUSED" if self._capture_paused else "LOCAL")
+        self.capture_status.setText("PAUSED" if self._capture_paused else "")
         self.capture_status.setToolTip("Automatic clipboard capture paused" if self._capture_paused else "Clipboard capture active; data stays on this PC")
 
     def set_capture_paused(self, paused):
@@ -572,6 +602,33 @@ class SideDock(QWidget):
 
     def toggle_settings(self):
         self.pages.setCurrentIndex(1 if self.pages.currentIndex() == 0 else 0)
+
+    def open_note_editor(self):
+        if not can_capture(self.saved_items):
+            QMessageBox.information(self, "SideDock", "History is full. Remove an item before adding a note.")
+            return
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Add Note · SideDock")
+        dialog.setMinimumSize(330, 260)
+        editor_layout = QVBoxLayout(dialog)
+        description = QLabel("Write a note to save locally in SideDock.")
+        editor_layout.addWidget(description)
+        editor = QPlainTextEdit()
+        editor.setPlaceholderText("Write a note or save a reusable snippet…")
+        editor_layout.addWidget(editor)
+        controls = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
+        controls.accepted.connect(dialog.accept)
+        controls.rejected.connect(dialog.reject)
+        editor_layout.addWidget(controls)
+        if dialog.exec() != QDialog.Accepted:
+            return
+        value = editor.toPlainText()
+        if not value.strip():
+            return
+        if len(value.encode("utf-8")) > MAX_TEXT_BYTES:
+            QMessageBox.warning(self, "SideDock", "Notes cannot exceed 256 KiB.")
+            return
+        self.record_new_item({"type": "note", "content": value}, rapid=False)
 
     def clear_unpinned(self):
         kept = [item for item in self.saved_items if item.get("pinned")]
@@ -799,12 +856,13 @@ class SideDock(QWidget):
 
         self.safe_process_mime(self.clipboard.mimeData())
 
-    def record_new_item(self, item):
+    def record_new_item(self, item, rapid=True):
         item.setdefault("pinned", False)
         self.save_json(self.index_file, [item, *self.saved_items])
         self.saved_items.insert(0, item)
-        self.rapid_buffer.insert(0, item)
-        self.rapid_buffer = self.rapid_buffer[:3]
+        if rapid:
+            self.rapid_buffer.insert(0, item)
+            self.rapid_buffer = self.rapid_buffer[:3]
         self.refresh_list()
 
     def safe_process_mime(self, mime):
@@ -881,7 +939,7 @@ class SideDock(QWidget):
     def matches_query(self, item, query):
         if not query:
             return True
-        if item["type"] == "text":
+        if item["type"] in ("text", "note"):
             return query in item["content"].lower()
         if item["type"] == "file":
             return query in item["name"].lower()
@@ -919,6 +977,12 @@ class SideDock(QWidget):
             empty_layout.addWidget(heading)
             empty_layout.addWidget(detail)
             self.list_layout.insertWidget(0, empty)
+            if not query and not self.saved_items:
+                hint = QLabel("Quick-Paste: Ctrl+Alt+V" if self.settings.get("shortcut_preset") == "alternative" else "Quick-Paste: Ctrl+Shift+V")
+                hint.setObjectName("SubLabel")
+                hint.setAlignment(Qt.AlignCenter)
+                hint.setToolTip("Change shortcuts in Settings")
+                self.list_layout.insertWidget(1, hint)
         self.sync_list_width()
 
     def render_item(self, item):
@@ -926,7 +990,7 @@ class SideDock(QWidget):
             item, self.colors, self.paste_item_now, self.set_drag_out_state
         )
         card.setCursor(Qt.PointingHandCursor)
-        card.setToolTip("Click to copy and paste · Drag to another app")
+        card.setToolTip("Click to copy or paste · Drag to another app")
         body = QVBoxLayout(card)
         body.setContentsMargins(10, 7, 9, 9)
         body.setSpacing(5)
@@ -949,12 +1013,13 @@ class SideDock(QWidget):
         is_fav = item.get("pinned", False)
         star_btn = QPushButton("★" if is_fav else "☆")
         star_btn.setFixedSize(24, 24)
+        star_btn.setObjectName("CardAction")
         star_btn.setCursor(Qt.PointingHandCursor)
         star_btn.setToolTip("Remove favorite" if is_fav else "Keep as favorite")
         star_btn.setAccessibleName(star_btn.toolTip())
         star_color = "#f4f4f5" if self.colors["is_dark"] else "#27272a"
         muted = "#a1a1aa" if self.colors["is_dark"] else "#52525b"
-        star_btn.setStyleSheet(f"QPushButton {{ background: transparent; color: {star_color if is_fav else muted}; border: none; font-size: 16px; }}")
+        star_btn.setStyleSheet(f"QPushButton {{ color: {star_color if is_fav else muted}; font-size: 16px; }}")
         star_btn.clicked.connect(lambda _, it=item: self.toggle_favorite(it))
         top.addWidget(star_btn)
 

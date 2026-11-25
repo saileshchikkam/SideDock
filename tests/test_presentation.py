@@ -6,6 +6,8 @@ from sidedock.presentation import card_kind, preview_text
 class PresentationTests(unittest.TestCase):
     def test_kind_labels(self):
         self.assertEqual(card_kind({"type": "image"}), "IMAGE")
+        self.assertEqual(card_kind({"type": "note", "content": "hello"}), "NOTE")
+        self.assertEqual(card_kind({"type": "text", "content": "hello", "source": "ocr"}), "OCR TEXT")
         self.assertEqual(card_kind({"type": "file", "name": "report.pdf"}), "PDF")
         self.assertEqual(card_kind({"type": "file", "name": "folder"}), "FILE")
         self.assertEqual(card_kind({"type": "text", "content": "https://example.com/a"}), "LINK")

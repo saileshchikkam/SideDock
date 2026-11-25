@@ -58,13 +58,13 @@ def resolve_colors(settings):
             alpha = 244
     elif mode == "dark":
         is_dark = True
-        bg = (24, 24, 27)
-        alpha = 230
+        bg = (12, 13, 17)
+        alpha = 250
         accent = neutral_accent
-    else:  # deep_dark
+    else:  # deep_dark: nearly black, with readable foreground contrast
         is_dark = True
-        bg = (9, 9, 11)
-        alpha = 246
+        bg = (2, 3, 5)
+        alpha = 253
         accent = neutral_accent
 
     return {
@@ -82,10 +82,10 @@ def build_dock_qss(colors, drag_highlight=False):
     acc_r, acc_g, acc_b = colors["accent"]
 
     text_col = "#f5f5f5" if is_dark else "#171717"
-    muted_col = "#a1a1aa" if is_dark else "#52525b"
-    card_bg = "rgba(255, 255, 255, 18)" if is_dark else "rgba(15, 23, 42, 12)"
-    card_border = "rgba(255, 255, 255, 30)" if is_dark else "rgba(15, 23, 42, 34)"
-    btn_bg = "rgba(255, 255, 255, 20)" if is_dark else "rgba(15, 23, 42, 18)"
+    muted_col = "#b3b4bd" if is_dark else "#52525b"
+    card_bg = "rgba(255, 255, 255, 25)" if is_dark else "rgba(15, 23, 42, 12)"
+    card_border = "rgba(255, 255, 255, 58)" if is_dark else "rgba(15, 23, 42, 34)"
+    btn_bg = "rgba(255, 255, 255, 24)" if is_dark else "rgba(15, 23, 42, 18)"
     btn_text = text_col
     active_text = "#111113" if (acc_r * 0.299 + acc_g * 0.587 + acc_b * 0.114) > 155 else "#ffffff"
     cap_bg = "#e4e4e7" if is_dark else "#27272a"
@@ -131,6 +131,9 @@ def build_dock_qss(colors, drag_highlight=False):
             font-size: 11px;
             font-weight: 600;
         }}
+        QToolTip {{ background: rgb({max(20,r+18)}, {max(20,g+18)}, {max(22,b+18)}); color: {text_col}; border: 1px solid {card_border}; padding: 5px 7px; }}
+        QPlainTextEdit {{ background-color: {card_bg}; color: {text_col}; border: 1px solid {card_border}; border-radius: 10px; padding: 8px; }}
+        QComboBox {{ background: {btn_bg}; color: {btn_text}; border: 1px solid {card_border}; border-radius: 9px; padding: 6px; }}
         QLineEdit {{
             background-color: {card_bg};
             color: {text_col};
@@ -175,6 +178,10 @@ def build_dock_qss(colors, drag_highlight=False):
             background: #a1a1aa;
             color: #18181b;
         }}
+        QPushButton#NoteBtn {{ background: {btn_bg}; color: {btn_text}; border: 1px solid {card_border}; border-radius: 10px; padding: 5px 10px; font-size: 11px; }}
+        QPushButton#NoteBtn:hover {{ background: rgba({acc_r}, {acc_g}, {acc_b}, 80); border-color: rgba({acc_r}, {acc_g}, {acc_b}, 170); }}
+        QPushButton#CardAction {{ background: transparent; border: 1px solid transparent; border-radius: 8px; }}
+        QPushButton#CardAction:hover {{ background: rgba({acc_r}, {acc_g}, {acc_b}, 70); border-color: rgba({acc_r}, {acc_g}, {acc_b}, 110); }}
         QPushButton#CloseBtn {{
             background: {btn_bg};
             color: {btn_text};
