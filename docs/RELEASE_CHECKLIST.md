@@ -39,8 +39,8 @@ Use a non-sensitive test profile and disposable files. Start with the candidate 
 | Restart | History, selected monitor, theme and startup preference persist | Pending |
 | Startup | Enable, reboot/log in, verify one instance; disable and repeat | Pending |
 | Theme | Deep Dark, Dark and Windows theme remain readable | Pending |
-| Manual note | Create a note, restart, search, favorite and paste without unexpected Quick-Paste | Pending |
-| OCR | Verify missing-Tesseract warning and local text recognition when Tesseract is installed | Pending |
+| Manual note | Type and save a note inside the main dock (no external window), restart, search, favorite and paste | Pending |
+| OCR | SideDock-owned region overlay, clipboard and saved-image OCR, bundled engine, editable in-dock result | Pending |
 | Local cleanup | Only unused SideDock-managed copies are removed after confirmation | Pending |
 | Settings | Shortcut options and storage tools accessible at minimum dock height | Pending |
 | Hover feedback | Star/remove buttons and tooltips work with mouse and keyboard focus | Pending |

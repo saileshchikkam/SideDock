@@ -6,7 +6,7 @@ SideDock monitors clipboard changes and persists selected content on the local m
 
 - Local-only storage; no application backend or account.
 - Capture pause available from Settings and the tray. Intentionally initiated OCR is still allowed while automatic clipboard history capture is paused.
-- Screenshot OCR uses an optional, locally installed Tesseract executable. It does not send images to network services.
+- Screenshot OCR uses a bundled offline Tesseract executable in official Windows builds. Source-only development runs may require Tesseract installed on the computer. OCR never uploads images to any service.
 - Local cleanup requires a confirmation and removes only SideDock-named unreferenced managed copies; there is no automatic eviction.
 - Windows exclusion clipboard format respected when the source sets it.
 - Atomic JSON replacement, bounded new imports, and guarded foreground paste.

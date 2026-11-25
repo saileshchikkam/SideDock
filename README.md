@@ -18,7 +18,7 @@ SideDock hides at the edge of your screen until you need it. Collect a screensho
 - **Local controls** — pause capture, switch shortcut presets, and manage startup from the notification-area icon.
 - **Appearance** — improved contrast in the Dark and near-black Deep Dark palettes, plus Windows accent-aware mode.
 - **Notes** — save handwritten text and snippets locally without changing the system clipboard.
-- **Screen text** — optional offline OCR for English screenshots using a locally installed Tesseract executable.
+- **Screen text** — on-device English OCR from a screenshot region or saved image, included in the Windows release without a separate setup.
 - **Storage tools** — open the data folder, inspect usage and manually remove only unreferenced SideDock-managed copies.
 
 ## Try the Windows release candidate
@@ -54,9 +54,9 @@ To stop SideDock, choose **Quit SideDock** from its notification-area menu. To d
 
 ## Notes, screenshot and text extraction
 
-**Add Note** appears directly below search. Enter text and press Save to keep a searchable, pinnable note; manually saved notes do not trigger the rapid-copy workflow.
+**Add Note** appears below search. It opens an editor **inside the existing SideDock panel**, not in a separate dialog. Save creates a searchable, pinnable local note card; cancel discards the unsaved draft. Manual notes do not trigger Quick-Paste.
 
-**Screenshot** opens Windows screen snipping. **Text OCR** also opens screen snipping, then attempts offline English OCR after the selected image reaches the clipboard. Text is shown for editing before it is saved. Text OCR is optional and requires installing the [Tesseract OCR command-line program](https://github.com/tesseract-ocr/tesseract) on the Windows computer and restarting SideDock. The portable EXE **does not bundle Tesseract**. This feature never uploads the screenshot; if Tesseract is unavailable, SideDock displays setup guidance instead. If the snip is not automatically copied to the clipboard, copy it manually from Snipping Tool. OCR output can contain mistakes; verify it before using it.
+**Screenshot** continues to use Windows screen snipping. **Text OCR** now opens a **SideDock-internal OCR workspace** with three options: Select Screen Region (using SideDock's own temporary full-screen selection overlay), Use Clipboard Image or Use Latest Saved Image. The OCR result opens in SideDock's inline text editor for correction before saving a card. The Windows installer and portable EXE package the English Tesseract OCR engine and its language data to avoid a separate OCR installation. Source-only Python installations may still need Tesseract installed locally. No screenshots or text are uploaded. OCR recognition can make mistakes; verify the output before using it.
 
 ## Keyboard shortcuts
 

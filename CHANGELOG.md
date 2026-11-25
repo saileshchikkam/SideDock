@@ -21,7 +21,8 @@
 ### Final UX refinement (beta)
 - Stronger Dark and Deep Dark contrast and improved tooltip/hover feedback.
 - Manual local notes, empty-state shortcut hints and shortcut configuration inside Settings.
-- Screenshot button label, optional English screenshot OCR with explicit offline Tesseract dependency.
+- Note editor and OCR review now live inside the dock instead of floating dialog windows.
+- Screenshot button label; English screenshot OCR now has an in-dock workspace and uses bundled Tesseract and English recognition data in Windows packages.
 - Scrollable Settings panel, data directory overview and manual cleanup of safely identified unused copies.
 - Removed LOCAL from the dock header; PAUSED remains visible when capture is disabled.
 
