@@ -633,10 +633,22 @@ class SideDock(QWidget):
         dialog = QDialog(self)
         dialog.setWindowTitle("Review extracted text · SideDock" if source == "ocr" else "Add Note · SideDock")
         dialog.setMinimumSize(330, 260)
+        dark = self.colors["is_dark"]
+        bg = "#111216" if dark else "#f6f6f8"
+        surface = "#23242a" if dark else "#ffffff"
+        fg = "#f5f5f5" if dark else "#171717"
+        border = "#4b4b55" if dark else "#c6c6ce"
+        dialog.setStyleSheet(f"QDialog {{ background: {bg}; }} QLabel {{ color: {fg}; }} "
+                             f"QPlainTextEdit {{ background: {surface}; color: {fg}; border: 1px solid {border}; "
+                             f"border-radius: 9px; padding: 8px; }} "
+                             f"QPushButton {{ background: {surface}; color: {fg}; border: 1px solid {border}; "
+                             f"border-radius: 8px; padding: 6px 12px; }} "
+                             f"QPushButton:hover {{ border-color: #a1a1aa; }}")
         editor_layout = QVBoxLayout(dialog)
         description = QLabel("Review OCR output before saving locally." if source == "ocr" else "Write a note to save locally in SideDock.")
         editor_layout.addWidget(description)
         editor = QPlainTextEdit()
+        editor.setAccessibleName("Note text")
         editor.setPlaceholderText("Write a note or save a reusable snippet…")
         if initial:
             editor.setPlainText(initial)
@@ -1209,7 +1221,17 @@ def main():
         popup.apply_theme(colors)
         panel = SettingsPanel({}, lambda: None, lambda _: None, lambda: None)
         panel.add_capture_control(False, lambda _: None)
+        panel.add_shortcut_controls(lambda *_: None)
+        panel.add_storage_controls(lambda: None, lambda: None)
+        panel.set_storage_usage("0 items")
+        panel.sync_shortcut_controls()
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(panel)
         card = DraggableCard({"type": "text", "content": "test"}, colors, lambda _: None, lambda _: None)
+        note = DraggableCard({"type": "note", "content": "Manual note"}, colors, lambda _: None, lambda _: None)
+        if not panel.shortcut_toggle.isChecked() or not hasattr(panel, "storage_usage"):
+            raise SystemExit(2)
         if app.windowIcon().isNull() or not build_dock_qss(colors):
             raise SystemExit(2)
         return

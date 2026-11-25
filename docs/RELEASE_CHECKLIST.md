@@ -2,7 +2,7 @@
 
 ## Automated evidence
 
-- [x] Twelve Python unit tests passed on Windows.
+- [x] Original 12 Python unit tests passed on Windows; additional OCR, storage and theme tests added for the new candidate.
 - [x] Source Qt smoke test passed.
 - [x] Windows portable executable built successfully.
 - [x] Packaged binary smoke test passed.

@@ -13,13 +13,17 @@ class OcrTests(unittest.TestCase):
     def test_reads_locally_and_deletes_temporary_image(self):
         png = b"\x89PNG\r\n\x1a\n" + b"fake"
         inspected = []
+        paths = []
         def run(args, **kwargs):
+            paths.append(args[1])
             with open(args[1], "rb") as image:
                 inspected.append(image.read())
             return Mock(stdout="  Sample text  ")
         with patch("sidedock.ocr.subprocess.run", side_effect=run):
             self.assertEqual(extract_text_from_png(png, executable="tesseract"), "Sample text")
         self.assertEqual(inspected, [png])
+        from pathlib import Path
+        self.assertFalse(Path(paths[0]).exists())
 
 if __name__ == "__main__":
     unittest.main()
