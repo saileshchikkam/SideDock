@@ -383,6 +383,32 @@ class SettingsPanel(QWidget):
         layout.insertWidget(layout.count() - 1, self.shortcut_info)
         self.sync_shortcut_controls()
 
+    def add_storage_controls(self, open_callback, cleanup_callback):
+        layout = self.layout()
+        title = QLabel("LOCAL STORAGE")
+        title.setObjectName("SubLabel")
+        layout.insertWidget(layout.count() - 1, title)
+        self.storage_usage = QLabel()
+        self.storage_usage.setObjectName("SubLabel")
+        self.storage_usage.setWordWrap(True)
+        layout.insertWidget(layout.count() - 1, self.storage_usage)
+        actions = QHBoxLayout()
+        open_btn = QPushButton("Open Folder")
+        open_btn.setObjectName("ModeBtn")
+        open_btn.setToolTip("Open SideDockData in File Explorer")
+        open_btn.clicked.connect(open_callback)
+        clean_btn = QPushButton("Clean Copies")
+        clean_btn.setObjectName("ModeBtn")
+        clean_btn.setToolTip("Review and remove unused SideDock-managed file copies only")
+        clean_btn.clicked.connect(cleanup_callback)
+        actions.addWidget(open_btn)
+        actions.addWidget(clean_btn)
+        layout.insertLayout(layout.count() - 1, actions)
+
+    def set_storage_usage(self, message):
+        if hasattr(self, "storage_usage"):
+            self.storage_usage.setText(message)
+
     def sync_shortcut_controls(self):
         if not hasattr(self, "shortcut_toggle"):
             return

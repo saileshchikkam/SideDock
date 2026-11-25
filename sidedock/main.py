@@ -7,6 +7,7 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
 import time
 import uuid
 import logging
@@ -27,7 +28,7 @@ from PySide6.QtCore import (
     QUrl,
     Signal,
 )
-from PySide6.QtGui import QCursor, QGuiApplication, QImage, QPixmap, QRegion
+from PySide6.QtGui import QCursor, QDesktopServices, QGuiApplication, QImage, QPixmap, QRegion
 from PySide6.QtWidgets import (
     QApplication,
     QFrame,
@@ -54,7 +55,8 @@ from sidedock.autostart import is_enabled as autostart_enabled, set_enabled as s
 from sidedock.version import __version__
 from sidedock.presentation import card_kind, preview_text
 from sidedock.interaction import shortcut_keys, select_paste_target
-from sidedock.storage import atomic_write_json, can_capture, file_digest, managed_bytes, MAX_FILE_BYTES, MAX_TEXT_BYTES, MAX_MANAGED_BYTES
+from sidedock.storage import atomic_write_json, can_capture, file_digest, managed_bytes, orphaned_managed_copies, cleanup_orphaned_copies, MAX_FILE_BYTES, MAX_TEXT_BYTES, MAX_MANAGED_BYTES
+from sidedock.ocr import find_tesseract, extract_text_from_png
 from sidedock.theme import build_dock_qss, resolve_colors
 from sidedock.widgets import (
     DraggableCard,
@@ -125,6 +127,8 @@ class SideDock(QWidget):
     trigger_after_paste_signal = Signal()
     trigger_all_slots_signal = Signal()
     pick_slot_signal = Signal(int)
+    ocr_ready_signal = Signal(int, str)
+    ocr_error_signal = Signal(int, str)
 
     def __init__(self):
         super().__init__()
@@ -139,6 +143,8 @@ class SideDock(QWidget):
         self._paste_generation = 0
         self._hotkey_removers = []
         self._slot_removers = []
+        self._ocr_waiting = False
+        self._ocr_request_id = 0
 
         # 1. Local PC storage setup
         self.data_dir = Path.home() / "SideDockData"
@@ -229,6 +235,12 @@ class SideDock(QWidget):
         capture_btn.setCursor(Qt.PointingHandCursor)
         capture_btn.clicked.connect(self.trigger_capture)
 
+        ocr_btn = QPushButton("Text OCR")
+        ocr_btn.setObjectName("HeaderBtn")
+        ocr_btn.setCursor(Qt.PointingHandCursor)
+        ocr_btn.setToolTip("Select a screen region, recognize English text offline, and save as an editable card (requires Tesseract)")
+        ocr_btn.clicked.connect(self.trigger_ocr_capture)
+
         clear_btn = QPushButton("Clear")
         clear_btn.setObjectName("HeaderBtn")
         clear_btn.setToolTip("Remove all unstarred history items (cannot be undone)")
@@ -259,6 +271,7 @@ class SideDock(QWidget):
         toolbar = QHBoxLayout()
         toolbar.setSpacing(5)
         toolbar.addWidget(capture_btn, 2)
+        toolbar.addWidget(ocr_btn, 2)
         toolbar.addWidget(clear_btn, 1)
         toolbar.addWidget(self.pin_btn, 1)
         layout.addLayout(toolbar)
@@ -284,7 +297,7 @@ class SideDock(QWidget):
         self.add_note_button.setObjectName("NoteBtn")
         self.add_note_button.setToolTip("Create a local text note without using the clipboard")
         self.add_note_button.setCursor(Qt.PointingHandCursor)
-        self.add_note_button.clicked.connect(self.open_note_editor)
+        self.add_note_button.clicked.connect(lambda: self.open_note_editor())
         add_row.addWidget(self.add_note_button)
         items_layout.addLayout(add_row)
         self.history_status = QLabel()
@@ -317,7 +330,13 @@ class SideDock(QWidget):
         self.settings_panel.add_capture_control(self._capture_paused, self.set_capture_paused)
         self.settings_panel.add_shortcut_controls(self.on_shortcut_settings_changed)
         self.pages.addWidget(items_page)
-        self.pages.addWidget(self.settings_panel)
+        self.settings_panel.add_storage_controls(self.open_data_folder, self.clean_unused_copies)
+        settings_scroll = QScrollArea()
+        settings_scroll.setWidgetResizable(True)
+        settings_scroll.setFrameShape(QFrame.NoFrame)
+        settings_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        settings_scroll.setWidget(self.settings_panel)
+        self.pages.addWidget(settings_scroll)
         layout.addWidget(self.pages)
 
         # Bottom bar: mirrors resize grip & Settings ⚙ depending on Left/Right edge
@@ -350,12 +369,15 @@ class SideDock(QWidget):
         # 7. Quick-Paste 8s popup + hotkeys
         self.quick_popup = QuickPastePopup(self.paste_item_now)
         self.quick_popup.apply_theme(self.colors)
+        self.ocr_ready_signal.connect(self.on_ocr_ready)
+        self.ocr_error_signal.connect(self.on_ocr_error)
         self.trigger_after_paste_signal.connect(self.open_remaining_popup)
         self.trigger_all_slots_signal.connect(self.open_all_slots_popup)
         self.pick_slot_signal.connect(self.quick_popup.pick_number)
 
         self.quick_popup.slots_changed.connect(self.sync_slot_hotkeys)
         self.setup_tray()
+        self.refresh_storage_usage()
         self.register_hotkeys()
         app = QApplication.instance()
         app.screenRemoved.connect(self.on_screen_removed)
@@ -602,19 +624,22 @@ class SideDock(QWidget):
 
     def toggle_settings(self):
         self.pages.setCurrentIndex(1 if self.pages.currentIndex() == 0 else 0)
+        self.refresh_storage_usage()
 
-    def open_note_editor(self):
+    def open_note_editor(self, initial="", source="note"):
         if not can_capture(self.saved_items):
             QMessageBox.information(self, "SideDock", "History is full. Remove an item before adding a note.")
             return
         dialog = QDialog(self)
-        dialog.setWindowTitle("Add Note · SideDock")
+        dialog.setWindowTitle("Review extracted text · SideDock" if source == "ocr" else "Add Note · SideDock")
         dialog.setMinimumSize(330, 260)
         editor_layout = QVBoxLayout(dialog)
-        description = QLabel("Write a note to save locally in SideDock.")
+        description = QLabel("Review OCR output before saving locally." if source == "ocr" else "Write a note to save locally in SideDock.")
         editor_layout.addWidget(description)
         editor = QPlainTextEdit()
         editor.setPlaceholderText("Write a note or save a reusable snippet…")
+        if initial:
+            editor.setPlainText(initial)
         editor_layout.addWidget(editor)
         controls = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
         controls.accepted.connect(dialog.accept)
@@ -628,7 +653,38 @@ class SideDock(QWidget):
         if len(value.encode("utf-8")) > MAX_TEXT_BYTES:
             QMessageBox.warning(self, "SideDock", "Notes cannot exceed 256 KiB.")
             return
-        self.record_new_item({"type": "note", "content": value}, rapid=False)
+        item = {"type": "text", "content": value, "source": "ocr"} if source == "ocr" else {"type": "note", "content": value}
+        self.record_new_item(item, rapid=False)
+
+    def refresh_storage_usage(self):
+        try:
+            total = managed_bytes(self.files_dir)
+            orphaned = orphaned_managed_copies(self.files_dir, self.saved_items)
+            mb = total / (1024 * 1024)
+            self.settings_panel.set_storage_usage(f"{len(self.saved_items)} saved items · {mb:.1f} MiB managed copies · {len(orphaned)} unused copies")
+        except OSError:
+            self.settings_panel.set_storage_usage("Storage usage unavailable")
+
+    def open_data_folder(self):
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(self.data_dir)))
+
+    def clean_unused_copies(self):
+        candidates = orphaned_managed_copies(self.files_dir, self.saved_items)
+        if not candidates:
+            QMessageBox.information(self, "SideDock", "No unused managed copies found. Your saved history has not been changed.")
+            return
+        answer = QMessageBox.question(self, "Clean unused copies",
+            f"Delete {len(candidates)} unreferenced SideDock-managed file copies? Saved cards and original source files will be preserved.",
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if answer != QMessageBox.Yes:
+            return
+        try:
+            count = cleanup_orphaned_copies(self.files_dir, self.saved_items)
+        except OSError as exc:
+            QMessageBox.warning(self, "SideDock", f"Some copies could not be removed: {exc}")
+        else:
+            QMessageBox.information(self, "SideDock", f"Removed {count} unused managed copies.")
+        self.refresh_storage_usage()
 
     def clear_unpinned(self):
         kept = [item for item in self.saved_items if item.get("pinned")]
@@ -640,6 +696,7 @@ class SideDock(QWidget):
         for item in removed:
             self.remove_managed_file(item)
         self.refresh_list()
+        self.refresh_storage_usage()
 
     def remove_managed_file(self, item):
         if item["type"] in ("image", "file"):
@@ -739,6 +796,58 @@ class SideDock(QWidget):
          self.setWindowOpacity(0.98)
      self.update_monitor_mask()
      super().resizeEvent(event)
+
+    def trigger_ocr_capture(self):
+        if not find_tesseract():
+            QMessageBox.information(self, "Text OCR setup",
+                "Offline text extraction requires Tesseract OCR installed on this PC. Install Tesseract, then restart SideDock. Screenshots will never be uploaded.")
+            return
+        self._ocr_request_id += 1
+        request_id = self._ocr_request_id
+        self._ocr_waiting = True
+        self.trigger_capture()
+        QTimer.singleShot(35000, lambda: self.cancel_ocr_wait(request_id))
+
+    def cancel_ocr_wait(self, request_id):
+        if request_id == self._ocr_request_id:
+            self._ocr_waiting = False
+
+    def begin_ocr_from_clipboard(self, mime):
+        if not mime or not mime.hasImage() or not self._ocr_waiting:
+            return
+        picture = QImage(mime.imageData())
+        if picture.isNull():
+            return
+        from PySide6.QtCore import QBuffer, QByteArray, QIODevice
+        buffer_bytes = QByteArray()
+        buffer = QBuffer(buffer_bytes)
+        buffer.open(QIODevice.WriteOnly)
+        saved = picture.save(buffer, "PNG")
+        buffer.close()
+        if not saved:
+            return
+        self._ocr_waiting = False
+        request_id = self._ocr_request_id
+        png_bytes = bytes(buffer_bytes)
+        def worker():
+            try:
+                result = extract_text_from_png(png_bytes)
+                self.ocr_ready_signal.emit(request_id, result)
+            except (OSError, ValueError, subprocess.SubprocessError) as exc:
+                self.ocr_error_signal.emit(request_id, str(exc))
+        threading.Thread(target=worker, daemon=True).start()
+
+    def on_ocr_ready(self, request_id, content):
+        if request_id != self._ocr_request_id:
+            return
+        if not content.strip():
+            QMessageBox.information(self, "Text OCR", "No recognizable text found in the screenshot.")
+            return
+        self.open_note_editor(initial=content, source="ocr")
+
+    def on_ocr_error(self, request_id, message):
+        if request_id == self._ocr_request_id:
+            QMessageBox.warning(self, "Text OCR", "Could not extract screenshot text: " + message)
 
     def trigger_capture(self):
         self.collapse(force=True)
@@ -849,17 +958,20 @@ class SideDock(QWidget):
         if self._ignore_clipboard:
             self._ignore_clipboard = False
             return
-        if self._capture_paused:
-            return
         if ctypes.windll.user32.IsClipboardFormatAvailable(EXCLUDE_CLIPBOARD_FMT):
             return
-
-        self.safe_process_mime(self.clipboard.mimeData())
+        mime = self.clipboard.mimeData()
+        if self._ocr_waiting:
+            self.begin_ocr_from_clipboard(mime)
+        if self._capture_paused:
+            return
+        self.safe_process_mime(mime)
 
     def record_new_item(self, item, rapid=True):
         item.setdefault("pinned", False)
         self.save_json(self.index_file, [item, *self.saved_items])
         self.saved_items.insert(0, item)
+        self.refresh_storage_usage()
         if rapid:
             self.rapid_buffer.insert(0, item)
             self.rapid_buffer = self.rapid_buffer[:3]
@@ -1067,6 +1179,7 @@ class SideDock(QWidget):
         self.quick_popup.dismiss()
         self.remove_managed_file(item)
         self.refresh_list()
+        self.refresh_storage_usage()
 
     def copy_text_back(self, text):
         self._ignore_clipboard = True

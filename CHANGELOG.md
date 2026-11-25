@@ -18,6 +18,13 @@
 - Improved card hierarchy, capture state, history counts and empty states.
 - Theme-aware Quick-Paste with countdown feedback.
 
+### Final UX refinement (beta)
+- Stronger Dark and Deep Dark contrast and improved tooltip/hover feedback.
+- Manual local notes, empty-state shortcut hints and shortcut configuration inside Settings.
+- Screenshot button label, optional English screenshot OCR with explicit offline Tesseract dependency.
+- Scrollable Settings panel, data directory overview and manual cleanup of safely identified unused copies.
+- Removed LOCAL from the dock header; PAUSED remains visible when capture is disabled.
+
 ### Distribution
 - Portable Windows executable with version information, icon and SHA-256 checksum.
 - Shared per-user startup integration for Python and executable installs.

@@ -16,7 +16,10 @@ SideDock hides at the edge of your screen until you need it. Collect a screensho
 - **Quick-Paste** — access up to three recent items from a keyboard shortcut or the eight-second popup.
 - **Favorites** — star important items to preserve them when clearing unstarred history.
 - **Local controls** — pause capture, switch shortcut presets, and manage startup from the notification-area icon.
-- **Appearance** — Deep Dark, Dark and Windows accent-aware modes.
+- **Appearance** — improved contrast in the Dark and near-black Deep Dark palettes, plus Windows accent-aware mode.
+- **Notes** — save handwritten text and snippets locally without changing the system clipboard.
+- **Screen text** — optional offline OCR for English screenshots using a locally installed Tesseract executable.
+- **Storage tools** — open the data folder, inspect usage and manually remove only unreferenced SideDock-managed copies.
 
 ## Try the Windows release candidate
 
@@ -47,6 +50,12 @@ python -m sidedock
 
 To stop SideDock, choose **Quit SideDock** from its notification-area menu. To disable automatic startup, turn off **Start with Windows** before removing the executable.
 
+## Notes, screenshot and text extraction
+
+**Add Note** appears directly below search. Enter text and press Save to keep a searchable, pinnable note; manually saved notes do not trigger the rapid-copy workflow.
+
+**Screenshot** opens Windows screen snipping. **Text OCR** also opens screen snipping, then attempts offline English OCR after the selected image reaches the clipboard. Text is shown for editing before it is saved. Text OCR is optional and requires installing the [Tesseract OCR command-line program](https://github.com/tesseract-ocr/tesseract) on the Windows computer and restarting SideDock. The portable EXE **does not bundle Tesseract**. This feature never uploads the screenshot; if Tesseract is unavailable, SideDock displays setup guidance instead. If the snip is not automatically copied to the clipboard, copy it manually from Snipping Tool. OCR output can contain mistakes; verify it before using it.
+
 ## Keyboard shortcuts
 
 | Action | Classic | Alternative |
@@ -61,7 +70,8 @@ Change the preset or disable the global shortcuts from the tray menu. Numbered s
 
 SideDock stores local history in `%USERPROFILE%\SideDockData`. There is no account or backend service in the application. The history JSON and saved copies **are not encrypted**. Only clipboard applications that supply the Windows exclusion format can be automatically excluded; do not assume every password or sensitive value is excluded.
 
-- Pause automatic clipboard capture in Settings or the tray. Manual drops remain available.
+- Pause automatic clipboard capture in Settings or the tray. Manual drops and deliberately started OCR remain available.
+- Settings provides the same shortcut enable switch and presets as the tray. It also shows storage usage and offers manual cleanup of unreferenced copies.
 - Clear removes unstarred saved items and their managed copies; this is not an undoable operation.
 - Original source files are not removed by Clear. Folders are referenced rather than copied.
 - Existing history is preserved when capture is paused or when storage limits change.
