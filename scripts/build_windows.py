@@ -72,7 +72,13 @@ def main():
     ], cwd=ROOT, check=True)
     exe = ROOT / "dist" / "SideDock.exe"
     subprocess.run([str(exe), "--smoke-test"], cwd=ROOT, check=True, timeout=120)
-    subprocess.run([str(exe), "--smoke-test-ocr"], cwd=ROOT, check=True, timeout=120)
+    diagnostic = ROOT / "build" / "ocr-smoke-diagnostic.txt"
+    diagnostic.unlink(missing_ok=True)
+    try:
+        subprocess.run([str(exe), "--smoke-test-ocr"], cwd=ROOT, check=True, timeout=120)
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+        details = diagnostic.read_text(encoding="utf-8") if diagnostic.is_file() else "No packaged OCR diagnostic produced."
+        raise RuntimeError("Packaged OCR smoke test failed:\\n" + details) from exc
     (exe.parent / "SHA256SUMS.txt").write_text(checksum_line(exe), encoding="ascii")
     print(f"Verified build: {exe}")
 

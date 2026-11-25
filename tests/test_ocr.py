@@ -22,6 +22,7 @@ class OcrTests(unittest.TestCase):
         with patch("sidedock.ocr.subprocess.run", side_effect=run):
             self.assertEqual(extract_text_from_png(png, executable="tesseract"), "Sample text")
         self.assertEqual(inspected, [png])
+        self.assertTrue(paths[0].endswith(".png"))
         from pathlib import Path
         self.assertFalse(Path(paths[0]).exists())
 

@@ -2,6 +2,7 @@
 
 Tesseract is not bundled. No screenshots are sent over the network.
 """
+import ctypes
 import os
 import shutil
 import subprocess
@@ -46,8 +47,14 @@ def extract_text_from_png(png_bytes, executable=None, timeout=20):
         tessdata = Path(binary).parent / "tessdata"
         if tessdata.is_dir():
             environment["TESSDATA_PREFIX"] = str(tessdata)
-        result = subprocess.run(
-            [binary, str(temporary), "stdout", "-l", "eng"],
+        # PyInstaller sets the Windows DLL search path to its extraction root.
+        # The bundled Tesseract DLLs reside beside tesseract.exe in /ocr, not
+        # that root. Reset it while launching the helper to avoid DLL conflicts.
+        args = [binary, str(temporary), "stdout", "-l", "eng"]
+        if tessdata.is_dir():
+            args.extend(["--tessdata-dir", str(tessdata)])
+        environment["PATH"] = str(Path(binary).parent) + os.pathsep + environment.get("PATH", "")
+        options = dict(
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -57,6 +64,16 @@ def extract_text_from_png(png_bytes, executable=None, timeout=20):
             check=True,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
+        frozen = bool(getattr(sys, "frozen", False))
+        if frozen and sys.platform == "win32":
+            kernel32 = ctypes.windll.kernel32
+            kernel32.SetDllDirectoryW(None)
+            try:
+                result = subprocess.run(args, **options)
+            finally:
+                kernel32.SetDllDirectoryW(str(sys._MEIPASS))
+        else:
+            result = subprocess.run(args, **options)
         return result.stdout.strip()
     finally:
         if temporary is not None:

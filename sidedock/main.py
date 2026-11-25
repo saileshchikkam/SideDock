@@ -1296,9 +1296,23 @@ def main():
         buffer.open(QIODevice.WriteOnly)
         picture.save(buffer, "PNG")
         buffer.close()
-        result = extract_text_from_png(bytes(encoded)).replace(" ", "").upper()
-        if "SIDEDOCK" not in result:
-            raise SystemExit("Bundled OCR verification failed: " + result[:100])
+        try:
+            result = extract_text_from_png(bytes(encoded)).replace(" ", "").upper()
+            Path("build").mkdir(exist_ok=True)
+            Path("build/ocr-smoke-diagnostic.txt").write_text(
+                "engine_found=" + str(bool(find_tesseract())) + "\\n" +
+                "recognized=" + repr(result[:150]) + "\\n",
+                encoding="utf-8",
+            )
+            if "SIDEDOCK" not in result:
+                raise RuntimeError("Bundled OCR returned unexpected text: " + repr(result[:150]))
+        except Exception:
+            import traceback
+            Path("build").mkdir(exist_ok=True)
+            Path("build/ocr-smoke-diagnostic.txt").write_text(
+                traceback.format_exc(), encoding="utf-8"
+            )
+            raise SystemExit(1)
         return
     if "--smoke-test" in sys.argv:
         # Exercise packaged Qt resources without reading user data, registering
