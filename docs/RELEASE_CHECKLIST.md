@@ -50,7 +50,7 @@ Test at least one Windows 10 and one Windows 11 environment before claiming both
 
 - [ ] All critical native acceptance tests completed.
 - [ ] No known blocking clipboard, focus, startup or data-loss regressions.
-- [ ] Maintainer selects a license (or explicitly retains unlicensed status).
+- [x] Maintainer selected MIT License; LICENSE file committed to the release branch.
 - [ ] Privacy and unsigned executable limitations acknowledged.
 - [ ] Maintainer reviews and approves merge to main.
 - [ ] Final main build passes.

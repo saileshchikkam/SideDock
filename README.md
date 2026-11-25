@@ -104,4 +104,6 @@ Build on Windows with Python 3.12. Outputs: `dist/SideDock.exe` and `dist/SHA256
 - [Windows acceptance and release checklist](docs/RELEASE_CHECKLIST.md)
 - [Security and privacy notes](SECURITY.md)
 
-License selection is pending. Public repository visibility alone does not establish an open-source license.
+## License
+
+SideDock is released under the [MIT License](LICENSE). You may use, modify and redistribute it, including commercially, while preserving the copyright and license notice. The software is provided without warranty.
