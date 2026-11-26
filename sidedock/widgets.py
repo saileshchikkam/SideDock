@@ -1,6 +1,6 @@
 import ctypes
 from PySide6.QtCore import QMimeData, Qt, QTimer, QUrl, Signal
-from PySide6.QtGui import QDrag, QImage
+from PySide6.QtGui import QCursor, QDrag, QGuiApplication, QImage
 from PySide6.QtWidgets import (
     QApplication,
     QFrame,
@@ -251,8 +251,13 @@ class QuickPastePopup(QWidget):
             self.slots_layout.addWidget(btn)
 
         self.adjustSize()
-        screen = self.screen().availableGeometry()
-        self.move(screen.right() - self.width() - 20, screen.bottom() - self.height() - 20)
+        # Place the focus-free popup on the user's current monitor.
+        target = (QGuiApplication.screenAt(QCursor.pos()) or self.screen()
+                  or QGuiApplication.primaryScreen())
+        if target is not None:
+            screen = target.availableGeometry()
+            self.move(screen.right() - self.width() - 20,
+                      screen.bottom() - self.height() - 20)
 
     def tick(self):
         self.seconds_left -= 1
@@ -364,10 +369,10 @@ class SettingsPanel(QWidget):
         hint = QLabel("KEYBOARD SHORTCUTS")
         hint.setObjectName("SubLabel")
         layout.insertWidget(layout.count() - 1, hint)
-        self.shortcut_toggle = QPushButton("Enable global shortcuts")
+        self.shortcut_toggle = QPushButton("Enable SideDock shortcuts")
         self.shortcut_toggle.setObjectName("ModeBtn")
         self.shortcut_toggle.setCheckable(True)
-        self.shortcut_toggle.setToolTip("Disable if shortcuts conflict with other applications")
+        self.shortcut_toggle.setToolTip("On by default. Shows recent copies after Ctrl+V and enables Quick-Paste. Turn off only if another app conflicts.")
         self.shortcut_toggle.setChecked(bool(self.settings.get("shortcuts_enabled", True)))
         self.shortcut_toggle.toggled.connect(lambda enabled: callback("enabled", enabled))
         layout.insertWidget(layout.count() - 1, self.shortcut_toggle)
@@ -420,7 +425,7 @@ class SettingsPanel(QWidget):
         for control in (self.shortcut_toggle, self.shortcut_preset):
             control.blockSignals(False)
         binding = "Ctrl+Alt+V · Ctrl+Shift+Alt+1/2/3" if preset == "alternative" else "Ctrl+Shift+V · Ctrl+Alt+1/2/3"
-        self.shortcut_info.setText("Open Quick-Paste · Select visible slots\n" + binding + "\nCtrl+V pastes normally and may show remaining slots.")
+        self.shortcut_info.setText("Open Quick-Paste · Select visible slots\n" + binding + "\nCtrl+V pastes normally and shows up to 3 saved recent copies for 8 seconds when at least two exist, even after restarting SideDock.")
 
     def sync_buttons(self):
         current_mode = self.settings.get("mode", "deep_dark")

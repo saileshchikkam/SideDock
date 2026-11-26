@@ -189,11 +189,11 @@ For troubleshooting, startup options and complete build prerequisites, see [Inst
 
 | Action | Classic (default) | Alternative |
 | --- | --- | --- |
-| Normal paste; SideDock may offer remaining slots | `Ctrl + V` | `Ctrl + V` |
+| Native paste; recent copied cards appear in a small 8-second popup when 2+ items exist, even after restarting | `Ctrl + V` | `Ctrl + V` |
 | Open Quick-Paste | **`Ctrl + Shift + V`** | **`Ctrl + Alt + V`** |
 | Select recent slot 1/2/3 when visible | `Ctrl + Alt + 1/2/3` | `Ctrl + Shift + Alt + 1/2/3` |
 
-Change the preset, or turn off the global hooks if they conflict with your apps, in **Settings** or the **system tray menu**. Numbered slot shortcuts are only enabled while their relevant popup slots are available.
+**Enable SideDock shortcuts** is ON by default in **Settings → Keyboard Shortcuts** and the tray menu. **Ctrl+Shift+V** (Classic) opens Quick-Paste directly. Ordinary **Ctrl+V** always pastes normally; when two or more copied items exist, it also offers the three most recent copied cards for eight seconds. These remain accessible after restarting SideDock and after repeated pastes. You may disable the SideDock shortcuts if they conflict with another app, without disabling Windows Ctrl+V. Numbered shortcuts only work while their popup slots are visible.
 
 ## Your data stays on your PC
 

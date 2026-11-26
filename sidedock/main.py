@@ -51,7 +51,7 @@ from sidedock.branding import app_icon
 from sidedock.autostart import is_enabled as autostart_enabled, set_enabled as set_autostart_enabled
 from sidedock.version import __version__
 from sidedock.presentation import card_kind, preview_text
-from sidedock.interaction import shortcut_keys, select_paste_target
+from sidedock.interaction import shortcut_keys, select_paste_target, recent_copy_slots
 from sidedock.storage import atomic_write_json, can_capture, file_digest, managed_bytes, orphaned_managed_copies, cleanup_orphaned_copies, MAX_FILE_BYTES, MAX_TEXT_BYTES, MAX_MANAGED_BYTES
 from sidedock.ocr import find_tesseract, extract_text_from_png
 from sidedock.composer import NoteComposer, OCRWorkspace
@@ -140,6 +140,7 @@ class SideDock(QWidget):
         self.rapid_buffer = []
         self._search_target = None
         self._paste_generation = 0
+        self._internal_paste_popup_guard_until = 0.0
         self._hotkey_removers = []
         self._slot_removers = []
         self._editing = False
@@ -400,7 +401,7 @@ class SideDock(QWidget):
         self.tray_pause.setCheckable(True)
         self.tray_pause.setChecked(self._capture_paused)
         self.tray_pause.toggled.connect(self.set_capture_paused)
-        self.tray_shortcuts = self.tray_menu.addAction("Enable global shortcuts")
+        self.tray_shortcuts = self.tray_menu.addAction("Enable SideDock shortcuts")
         self.tray_shortcuts.setCheckable(True)
         self.tray_shortcuts.setChecked(self.settings.get("shortcuts_enabled", True))
         self.tray_shortcuts.toggled.connect(self.set_shortcuts_enabled)
@@ -765,15 +766,28 @@ class SideDock(QWidget):
         )
 
     def on_ctrl_v(self):
-        if len(self.rapid_buffer) >= 2:
-            self.trigger_after_paste_signal.emit()
+        # Windows native Ctrl+V is never suppressed or replaced. Do not
+        # intercept the distinct Ctrl+Shift+V / Ctrl+Alt+V shortcuts here.
+        if keyboard.is_pressed("shift") or keyboard.is_pressed("alt"):
+            return
+        self.trigger_after_paste_signal.emit()
 
     def open_remaining_popup(self):
-        remaining = list(enumerate(self.rapid_buffer[1:3], start=2))
-        self.rapid_buffer = []
-        if not self.settings.get("shortcuts_enabled", True):
+        # This handler runs in Qt's UI thread; wait for the native paste.
+        QTimer.singleShot(140, self.show_recent_copies_popup)
+
+    def show_recent_copies_popup(self):
+        if (not self.settings.get("shortcuts_enabled", True)
+                or self._editing
+                or time.monotonic() < self._internal_paste_popup_guard_until):
             return
-        self.quick_popup.show_slots(remaining, f"Also Copied ({self.shortcut_keys()[2]}+2/3)")
+        # Use saved clipboard history: the previous rapid_buffer was cleared
+        # after the first paste and recreated empty after each restart.
+        numbered = recent_copy_slots(self.saved_items)
+        if numbered:
+            self.quick_popup.show_slots(
+                numbered, f"Recent copies ({self.shortcut_keys()[2]}+1/2/3)"
+            )
 
     def open_all_slots_popup(self):
         items = self.rapid_buffer if self.rapid_buffer else self.saved_items[:3]
@@ -804,6 +818,7 @@ class SideDock(QWidget):
             user32.SetForegroundWindow(target[0])
         def send_if_target():
             if generation == self._paste_generation and window_identity(user32.GetForegroundWindow()) == target:
+                self._internal_paste_popup_guard_until = time.monotonic() + 0.75
                 keyboard.send("ctrl+v")
         QTimer.singleShot(80, send_if_target)
 

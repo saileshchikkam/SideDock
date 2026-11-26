@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased — Quick-Paste reliability fix
+
+- Restore the recent-copies popup after Ctrl+V using persisted clipboard history rather than the one-use temporary buffer.
+- Show up to three previously copied cards on repeated Ctrl+V presses and after SideDock restarts.
+- Preserve native Windows Ctrl+V and suppress duplicate popups from SideDock's own automatic paste.
+- Place the popup at the bottom-right of the mouse cursor's current monitor and clarify the SideDock shortcuts toggle.
+
 ## 1.0.0 — Public source edition
 
 ### Core
