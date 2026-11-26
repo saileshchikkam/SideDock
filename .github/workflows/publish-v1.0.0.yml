@@ -1,0 +1,56 @@
+name: Publish SideDock v1.0.0 Windows installer
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/publish-v1.0.0.yml"
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out the exact publishing revision
+        uses: actions/checkout@v4
+
+      - name: Retrieve verified main-branch Windows installer
+        uses: actions/download-artifact@v4
+        with:
+          name: SideDock-Windows-Installer
+          repository: saileshchikkam/SideDock
+          run-id: 45848413201
+          github-token: ${{ github.token }}
+          path: dist
+
+      - name: Verify exact Windows installer SHA-256 and payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f dist/SideDock-Setup-1.0.0.exe
+          test "$(find dist -maxdepth 1 -type f | wc -l)" -eq 1
+          echo '25c9bf3d04d7dc72ff5a20a4a153b2cd8af4777c24fac93db6e334e0ef73119c  dist/SideDock-Setup-1.0.0.exe' | sha256sum --check
+          echo "Verified GitHub Release binary matches successful Windows build 45848413201."
+
+      - name: Publish public GitHub release with a direct EXE asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: saileshchikkam/SideDock
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view v1.0.0 >/dev/null 2>&1; then
+            echo "Release v1.0.0 already exists, updating its verified installer asset."
+            gh release upload v1.0.0 dist/SideDock-Setup-1.0.0.exe --clobber
+          else
+            gh release create v1.0.0 dist/SideDock-Setup-1.0.0.exe \
+              --target "$GITHUB_SHA" \
+              --title "SideDock v1.0.0 — Windows" \
+              --notes-file docs/RELEASE_NOTES_v1.0.0.md \
+              --latest
+          fi
+          gh release view v1.0.0 --json isDraft,isPrerelease,assets,url
