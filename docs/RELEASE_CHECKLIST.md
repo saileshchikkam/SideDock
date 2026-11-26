@@ -7,7 +7,9 @@
 - [x] Windows portable executable built successfully.
 - [x] Packaged binary smoke test passed.
 - [x] SHA-256 checksum generated and artifact uploaded.
-- [x] Per-user Windows installer passes its CI install, exact-binary and uninstall smoke tests.
+- [x] Previous per-user installer passed CI install, exact-binary and uninstall smoke tests.
+- [ ] Updated per-user installer verifies its default startup entry and removes it on uninstall.
+- [ ] New artifact contains only the installer executable.
 
 Evidence: [Windows Actions run 45642152853](https://github.com/saileshchikkam/SideDock/actions/runs/45642152853), commit `24821d5`. Portable EXE, setup EXE and SHA-256 manifest were uploaded and verified. These automated checks do **not** exercise global hooks or actual interactive Windows desktop behavior.
 
@@ -18,7 +20,8 @@ Use a non-sensitive test profile and disposable files. Start with the candidate 
 | Test | Expected result | Result |
 | --- | --- | --- |
 | Launch portable EXE | Dock appears at chosen screen edge; no Python required | Pending |
-| Install SideDock setup | Per-user install, Start Menu shortcut and optional desktop shortcut, without elevation | Pending |
+| Install SideDock setup | Per-user install, Start Menu shortcut and optional desktop shortcut, without elevation; autostart checked by default | Pending |
+| Startup opt-out | Uncheck Start with Windows on install; verify no Run entry; tray toggle works afterward | Pending |
 | Uninstall SideDock setup | Program removed; saved SideDockData history/notes remain intact | Pending |
 | Second instance | No second clipboard watcher/dock | Pending |
 | Hover and collapse | No flicker while stationary at edge | Pending |
@@ -40,7 +43,7 @@ Use a non-sensitive test profile and disposable files. Start with the candidate 
 | Startup | Enable, reboot/log in, verify one instance; disable and repeat | Pending |
 | Theme | Deep Dark, Dark and Windows theme remain readable | Pending |
 | Manual note | Type and save a note inside the main dock (no external window), restart, search, favorite and paste | Pending |
-| OCR | SideDock-owned region overlay, clipboard and saved-image OCR, bundled engine, editable in-dock result | Pending |
+| OCR | Selection preview and saved screenshot crop match at 100%, 125%, 150%, 200% DPI; multiple monitors; bundled engine; editable in-dock result | Pending |
 | Local cleanup | Only unused SideDock-managed copies are removed after confirmation | Pending |
 | Settings | Shortcut options and storage tools accessible at minimum dock height | Pending |
 | Hover feedback | Star/remove buttons and tooltips work with mouse and keyboard focus | Pending |

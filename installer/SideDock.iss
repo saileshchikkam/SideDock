@@ -33,6 +33,13 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+Name: "autostart"; Description: "Start SideDock automatically when I sign in to Windows"; GroupDescription: "Windows startup:"
+
+[Registry]
+; Per-user opt-in during setup (checked by default). No administrator access.
+; The app tray can disable or re-enable the same HKCU Run value at any time.
+; Do not use uninsdeletevalue: the uninstall code checks the full path first.
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "SideDock"; ValueData: """{app}\SideDock.exe"""; Tasks: autostart
 
 [Files]
 Source: "..\dist\SideDock.exe"; DestDir: "{app}"; Flags: ignoreversion

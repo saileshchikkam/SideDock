@@ -4,6 +4,7 @@ Run after scripts/build_windows.py on Windows with Inno Setup 6.
 """
 import hashlib
 import os
+import winreg
 import shutil
 import subprocess
 import sys
@@ -40,7 +41,7 @@ def verify_installer(installer, portable_exe):
         destination = Path(directory) / "SideDock"
         subprocess.run(
             [str(installer), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART",
-             "/NOICONS", f"/DIR={destination}"],
+             "/NOICONS", "/TASKS=autostart", f"/DIR={destination}"],
             check=True, timeout=180,
         )
         installed = destination / "SideDock.exe"
@@ -48,6 +49,11 @@ def verify_installer(installer, portable_exe):
             raise RuntimeError("Installer smoke test: missing installed executable")
         if hashlib.sha256(installed.read_bytes()).digest() != hashlib.sha256(portable_exe.read_bytes()).digest():
             raise RuntimeError("Installer smoke test: executable differs from portable build")
+        key_path = r"Software\Microsoft\Windows\CurrentVersion\Run"
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path) as key:
+            command, _ = winreg.QueryValueEx(key, "SideDock")
+        if command.strip('"') != str(installed):
+            raise RuntimeError("Installer smoke test: startup entry does not target installed SideDock.exe")
         uninstaller = destination / "unins000.exe"
         if not uninstaller.is_file():
             raise RuntimeError("Installer smoke test: missing uninstaller")
@@ -57,6 +63,13 @@ def verify_installer(installer, portable_exe):
         )
         if installed.exists():
             raise RuntimeError("Installer smoke test: uninstaller left executable behind")
+        try:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path) as key:
+                winreg.QueryValueEx(key, "SideDock")
+        except FileNotFoundError:
+            pass
+        else:
+            raise RuntimeError("Installer smoke test: uninstaller left an obsolete startup entry")
     print("Installer installation/uninstallation smoke test passed.")
 
 

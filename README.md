@@ -24,13 +24,13 @@ SideDock hides at the edge of your screen until you need it. Collect a screensho
 ## Try the Windows release candidate
 
 1. Open the [Windows build workflow](https://github.com/saileshchikkam/SideDock/actions/workflows/windows-build.yml), then select the latest **successful run on `release/v1.0-hardening`**.
-2. Download the **SideDock-Windows** artifact from the run's *Artifacts* section (GitHub sign-in may be required; artifacts expire).
-3. Extract its ZIP. Run **`SideDock-Setup-1.0.0.exe`** to install, or **`SideDock.exe`** to use the portable version.
+2. Download the **SideDock-Windows-Installer** artifact from the run's *Artifacts* section (GitHub sign-in may be required; artifacts expire).
+3. Extract the GitHub artifact ZIP. It now contains **only `SideDock-Setup-1.0.0.exe`**; run that installer. GitHub Actions always wraps artifacts in a ZIP even when they contain a single EXE.
 4. Launch SideDock and hover over the right screen edge.
 
 Neither installer nor portable executable requires Python on the destination PC. Both are currently unsigned and may trigger a Windows SmartScreen warning. Scan the file and verify its checksum before deciding whether to trust it.
 
-**Installer behavior:** installs per-user without administrator permission, creates a Start Menu shortcut and an optional desktop shortcut, and registers a normal uninstaller. Uninstall preserves `%USERPROFILE%\SideDockData` (including history, notes and copied files), which must be managed separately. Before upgrading from the portable build, quit it and disable **Start with Windows** to avoid a stale startup entry.
+**Installer behavior:** installs per-user without administrator permission, creates a Start Menu shortcut and an optional desktop shortcut. **Start SideDock automatically when I sign in to Windows** is selected by default during setup; you can uncheck it or change it later from the system tray. The startup permission applies to the current Windows user and does not request administrator rights. A normal uninstaller is registered. Uninstall preserves `%USERPROFILE%\SideDockData` (including history, notes and copied files), which must be managed separately. Before upgrading from the portable build, quit it and disable **Start with Windows** to avoid a stale startup entry.
 
 Verify the SHA-256 digest in PowerShell:
 
@@ -39,7 +39,7 @@ Get-FileHash .\SideDock.exe -Algorithm SHA256
 Get-Content .\SHA256SUMS.txt
 ```
 
-Compare the hash of the file you intend to run (`SideDock.exe` or `SideDock-Setup-1.0.0.exe`) with its corresponding line in `SHA256SUMS.txt`.
+The CI build prints both SHA-256 hashes to its logs. The artifact contains only the installer; the portable EXE and checksum manifest remain CI build outputs but are not bundled in the download. Compare the installer hash with the build log before running it.
 
 ### Install from source
 
@@ -56,7 +56,7 @@ To stop SideDock, choose **Quit SideDock** from its notification-area menu. To d
 
 **Add Note** appears below search. It opens an editor **inside the existing SideDock panel**, not in a separate dialog. Save creates a searchable, pinnable local note card; cancel discards the unsaved draft. Manual notes do not trigger Quick-Paste.
 
-**Screenshot** continues to use Windows screen snipping. **Text OCR** now opens a **SideDock-internal OCR workspace** with three options: Select Screen Region (using SideDock's own temporary full-screen selection overlay), Use Clipboard Image or Use Latest Saved Image. The OCR result opens in SideDock's inline text editor for correction before saving a card. The Windows installer and portable EXE package the English Tesseract OCR engine and its language data to avoid a separate OCR installation. Source-only Python installations may still need Tesseract installed locally. No screenshots or text are uploaded. OCR recognition can make mistakes; verify the output before using it.
+**Screenshot** continues to use Windows screen snipping. **Text OCR** now opens a **SideDock-internal OCR workspace** with three options: Select Screen Region (using SideDock's pixel-aligned, unzoomed selection overlay; the highlighted preview exactly matches the cropped screenshot at 100%–200% display scaling), Use Clipboard Image or Use Latest Saved Image. The OCR result opens in SideDock's inline text editor for correction before saving a card. The Windows installer and portable EXE package the English Tesseract OCR engine and its language data to avoid a separate OCR installation. Source-only Python installations may still need Tesseract installed locally. No screenshots or text are uploaded. OCR recognition can make mistakes; verify the output before using it.
 
 ## Keyboard shortcuts
 
@@ -99,7 +99,7 @@ python scripts/build_windows.py
 python scripts/build_installer.py  # requires Inno Setup 6
 ```
 
-Build on Windows with Python 3.12 and Inno Setup 6. Outputs: `dist/SideDock.exe`, `dist/SideDock-Setup-1.0.0.exe` and `dist/SHA256SUMS.txt` (checksums for both binaries). CI also performs a silent install, checks the installed EXE matches the portable release, and tests uninstall in a disposable folder. GitHub Actions uploads both packages but does not publish a stable release automatically.
+Build on Windows with Python 3.12 and Inno Setup 6. Outputs: `dist/SideDock.exe`, `dist/SideDock-Setup-1.0.0.exe` and `dist/SHA256SUMS.txt` (checksums for both binaries). CI performs a silent install with autostart enabled, verifies the installed EXE matches the portable build, checks the startup registry entry, and tests uninstall removes that entry. **The downloadable GitHub Actions artifact contains one installer EXE only.** For a truly direct EXE download (without a GitHub artifact ZIP), the installer must be attached to an approved GitHub Release. Stable publication remains gated on native Windows testing.
 
 ## Release information
 

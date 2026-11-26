@@ -47,9 +47,7 @@ jobs:
         run: python scripts/build_installer.py
       - uses: actions/upload-artifact@v4
         with:
-          name: SideDock-Windows
-          path: |
-            dist/SideDock.exe
-            dist/SideDock-Setup-*.exe
-            dist/SHA256SUMS.txt
+          name: SideDock-Windows-Installer
+          path: dist/SideDock-Setup-*.exe
+          retention-days: 14
           if-no-files-found: error
