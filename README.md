@@ -8,11 +8,21 @@
 <p align="center">A quiet, local-first workspace for clipboard history, screenshots, text extraction, notes, files and instant reuse on Windows.</p>
 
 <p align="center">
-  <a href="https://github.com/saileshchikkam/SideDock/actions/workflows/windows-build.yml"><img src="https://img.shields.io/github/actions/workflow/status/saileshchikkam/SideDock/windows-build.yml?branch=release%2Fv1.0-hardening&style=flat-square&label=Windows%20build" alt="Windows build status"></a>
+  <a href="https://github.com/saileshchikkam/SideDock/actions/workflows/windows-build.yml"><img src="https://img.shields.io/github/actions/workflow/status/saileshchikkam/SideDock/windows-build.yml?branch=main&style=flat-square&label=Windows%20build" alt="Windows build status"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-d4d4d8?style=flat-square&labelColor=171717" alt="MIT license"></a>
   <img src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-f4f4f5?style=flat-square&labelColor=171717" alt="Windows 10 and 11">
   <img src="https://img.shields.io/badge/Python-3.10%2B-d4d4d8?style=flat-square&labelColor=171717" alt="Python 3.10 or newer for source development">
   <img src="https://img.shields.io/badge/privacy-local--first-f4f4f5?style=flat-square&labelColor=171717" alt="Local-first">
+</p>
+
+<p align="center">
+  <a href="https://github.com/saileshchikkam/SideDock/releases/download/v1.0.0/SideDock-Setup-1.0.0.exe">
+    <img src="https://img.shields.io/badge/INSTALL%20SIDEDOCK-Download%20Windows%20EXE-2563EB?style=for-the-badge&logo=windows&logoColor=white" width="420" alt="Install SideDock — directly download the Windows setup EXE">
+  </a>
+  <br>
+  <sub>Free · Windows 10/11 · Direct .exe download · No GitHub account required</sub>
+  <br>
+  <sub>After download, open the installer and approve Windows security prompts to install.</sub>
 </p>
 
 <p align="center">
@@ -24,7 +34,7 @@
 </p>
 
 > [!IMPORTANT]
-> **SideDock v1.0.0 — public source edition.** The source and MIT license are published on the default `main` branch. The Windows installer is distributed through verified [GitHub Actions builds](https://github.com/saileshchikkam/SideDock/actions/workflows/windows-build.yml) while a dedicated GitHub Release asset is pending. The executable is **unsigned**, and Windows may show Microsoft Defender SmartScreen. See [safe installation instructions](docs/INSTALLATION.md).
+> **SideDock v1.0.0 — public release.** Download the Windows installer directly from the [official GitHub Release](https://github.com/saileshchikkam/SideDock/releases/tag/v1.0.0); **no GitHub login or Actions ZIP is required**. The installer is **unsigned**, and Windows may show Microsoft Defender SmartScreen. Check the [safe installation instructions](docs/INSTALLATION.md) before running it.
 
 <p align="center">
   <img src="docs/assets/product-preview.svg" width="1100" alt="Illustrated SideDock product concept: edge dock with searchable note and OCR text cards">
@@ -121,14 +131,17 @@ SideDock works **alongside**, not instead of, standard Windows tools. Apps that 
 
 ### Option A — Windows installer (recommended)
 
-**All most people need:** Windows 10 or 11 (64-bit). **No Python, pip, Git, coding tools or separate OCR installation required.**
+**All most people need:** Windows 10 or 11 (64-bit). **No Python, pip, Git, coding tools, GitHub account or separate OCR installation required.**
 
-1. Open the **[Windows installer builds](https://github.com/saileshchikkam/SideDock/actions/workflows/windows-build.yml)**.
-2. Choose the latest successful run on the **`main`** branch.
-3. In **Artifacts**, download **SideDock-Windows-Installer**, then extract the ZIP. GitHub wraps artifacts in a ZIP even when they contain a single file.
-4. Run `SideDock-Setup-1.0.0.exe`. It installs SideDock for your Windows user with Start Menu access and an optional desktop shortcut.
-5. **Start SideDock when I sign in to Windows** is selected by default. You can uncheck this during setup or toggle it later from SideDock's tray menu.
-6. Hover at the configured screen edge to open your dock.
+<p align="center">
+  <a href="https://github.com/saileshchikkam/SideDock/releases/download/v1.0.0/SideDock-Setup-1.0.0.exe"><img src="https://img.shields.io/badge/INSTALL%20SIDEDOCK-Direct%20EXE%20download-2563EB?style=for-the-badge&logo=windows&logoColor=white" width="450" alt="Install SideDock: download Windows setup EXE directly"></a>
+</p>
+
+1. **Click Install SideDock above.** Your browser downloads `SideDock-Setup-1.0.0.exe` directly from the [official GitHub v1.0.0 release](https://github.com/saileshchikkam/SideDock/releases/tag/v1.0.0); no ZIP extraction or GitHub sign-in.
+2. **Scan and verify** the downloaded file. SHA-256: `25c9bf3d04d7dc72ff5a20a4a153b2cd8af4777c24fac93db6e334e0ef73119c` (see the [installation guide](docs/INSTALLATION.md)).
+3. Open the downloaded `.exe` and follow the Windows installer. Windows will request your approval; downloading cannot automatically run an installer.
+4. **Start SideDock when I sign in to Windows** is selected by default. You can uncheck this during setup or toggle it later from SideDock's tray menu.
+5. Hover at the configured screen edge to open the dock.
 
 **[Read the complete illustrated installation walkthrough →](docs/INSTALLATION.md)**
 
@@ -139,8 +152,8 @@ SideDock works **alongside**, not instead of, standard Windows tools. Apps that 
 <p align="center"><img src="docs/assets/smartscreen-guide.svg" width="1080" alt="Illustrated guide to the More info and Run anyway controls in an unsigned Windows installer warning"></p>
 <p align="center"><sub>Illustrative guide, not an authentic screenshot. Windows dialogs vary by version and policy.</sub></p>
 
-1. **Check the source.** Download only from this repository's successful build. Scan the installer with Microsoft Defender.
-2. **Verify its SHA-256 fingerprint** against the value shown in that build's job summary:
+1. **Check the source.** Download only from the [official SideDock v1.0.0 release](https://github.com/saileshchikkam/SideDock/releases/tag/v1.0.0). Scan the installer with Microsoft Defender.
+2. **Verify its SHA-256 fingerprint** against the value shown on the official release page:
 
    ```powershell
    Get-FileHash ".\SideDock-Setup-1.0.0.exe" -Algorithm SHA256
@@ -258,7 +271,7 @@ The current installer is **unsigned** and may not have established publisher rep
 
 <details><summary><strong>Why is there a ZIP if I only want one EXE?</strong></summary>
 
-GitHub Actions wraps artifacts in ZIP files. The current **SideDock-Windows-Installer** artifact contains one installer EXE. A separately published GitHub Release can expose that EXE as a directly downloadable asset; no such asset has been published yet.
+Use the large **Install SideDock** button above or the [direct .exe download](https://github.com/saileshchikkam/SideDock/releases/download/v1.0.0/SideDock-Setup-1.0.0.exe). This downloads just the Windows installer—no Actions artifacts, ZIP extraction or GitHub login. Windows still requires you to run and approve the downloaded program.
 
 </details>
 
@@ -277,7 +290,7 @@ Not in this release. The app is designed for Windows 10/11 and uses Windows-spec
 ## Roadmap & release status
 
 - **Implemented:** edge dock, capture and paste, favorites, Quick-Paste, embedded notes, in-app region OCR, dark themes, local storage tools, Windows installer and startup registration.
-- **Release verification:** final native Windows acceptance, security review, public release asset/checksum verification.
+- **Published:** the public v1.0.0 GitHub Release includes a directly downloadable Windows installer with a verified SHA-256 checksum. Broader Windows 10/11 hardware testing and code signing remain future improvements.
 - **Future possibilities (not shipped):** code signing, built-in update checks, more OCR languages and accessibility refinement.
 
 Follow [the changelog](CHANGELOG.md), [release checklist](docs/RELEASE_CHECKLIST.md) and [open issues](https://github.com/saileshchikkam/SideDock/issues). Please avoid posting sensitive copied content or private screenshots in public issues.
