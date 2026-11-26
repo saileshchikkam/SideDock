@@ -39,7 +39,7 @@ def get_windows_theme():
 def resolve_colors(settings):
     """Compute theme palette for Windows, Dark, or Deep Dark."""
     mode = settings.get("mode", "deep_dark")
-    blue_accent = (37, 99, 235)
+    neutral_accent = (226, 226, 231)
 
     if mode == "windows":
         win = get_windows_theme()
@@ -58,14 +58,14 @@ def resolve_colors(settings):
             alpha = 244
     elif mode == "dark":
         is_dark = True
-        bg = (20, 22, 28)
-        alpha = 230
-        accent = blue_accent
-    else:  # deep_dark
+        bg = (12, 13, 17)
+        alpha = 250
+        accent = neutral_accent
+    else:  # deep_dark: nearly black, with readable foreground contrast
         is_dark = True
-        bg = (6, 7, 10)
-        alpha = 246
-        accent = blue_accent
+        bg = (2, 3, 5)
+        alpha = 253
+        accent = neutral_accent
 
     return {
         "is_dark": is_dark,
@@ -81,14 +81,15 @@ def build_dock_qss(colors, drag_highlight=False):
     alpha = colors["alpha"]
     acc_r, acc_g, acc_b = colors["accent"]
 
-    text_col = "#f1f5f9" if is_dark else "#0f172a"
-    muted_col = "#cbd5e1" if is_dark else "#475569"
-    card_bg = "rgba(255, 255, 255, 18)" if is_dark else "rgba(15, 23, 42, 12)"
-    card_border = "rgba(255, 255, 255, 30)" if is_dark else "rgba(15, 23, 42, 34)"
-    btn_bg = "rgba(255, 255, 255, 20)" if is_dark else "rgba(15, 23, 42, 18)"
-    btn_text = "#f1f5f9" if is_dark else "#1e293b"
-    cap_bg = "rgba(16, 185, 129, 45)" if is_dark else "rgba(16, 185, 129, 32)"
-    cap_text = "#6ee7b7" if is_dark else "#047857"
+    text_col = "#f5f5f5" if is_dark else "#171717"
+    muted_col = "#b3b4bd" if is_dark else "#52525b"
+    card_bg = "rgba(255, 255, 255, 25)" if is_dark else "rgba(15, 23, 42, 12)"
+    card_border = "rgba(255, 255, 255, 58)" if is_dark else "rgba(15, 23, 42, 34)"
+    btn_bg = "rgba(255, 255, 255, 24)" if is_dark else "rgba(15, 23, 42, 18)"
+    btn_text = text_col
+    active_text = "#111113" if (acc_r * 0.299 + acc_g * 0.587 + acc_b * 0.114) > 155 else "#ffffff"
+    cap_bg = "#e4e4e7" if is_dark else "#27272a"
+    cap_text = "#18181b" if is_dark else "#ffffff"
     scroll_handle = "rgba(255, 255, 255, 70)" if is_dark else "rgba(15, 23, 42, 70)"
     scroll_hover = "rgba(255, 255, 255, 125)" if is_dark else "rgba(15, 23, 42, 120)"
 
@@ -101,11 +102,25 @@ def build_dock_qss(colors, drag_highlight=False):
         #DockContainer {{
             background-color: rgba({r}, {g}, {b}, {alpha});
             border: {border};
-            border-radius: 22px;
+            border-radius: 20px;
         }}
         QLabel {{
             color: {text_col};
             font-family: 'Segoe UI';
+            font-weight: 600;
+        }}
+        QLabel#BrandTitle {{
+            font-size: 18px;
+            font-weight: 700;
+        }}
+        QLabel#CardMeta, QLabel#StatusLabel {{
+            color: {muted_col};
+            font-size: 10px;
+            font-weight: 600;
+        }}
+        QLabel#EmptyTitle {{
+            color: {text_col};
+            font-size: 14px;
             font-weight: 600;
         }}
         QLabel#CardText {{
@@ -116,6 +131,9 @@ def build_dock_qss(colors, drag_highlight=False):
             font-size: 11px;
             font-weight: 600;
         }}
+        QToolTip {{ background: rgb({max(20,r+18)}, {max(20,g+18)}, {max(22,b+18)}); color: {text_col}; border: 1px solid {card_border}; padding: 5px 7px; }}
+        QPlainTextEdit {{ background-color: {card_bg}; color: {text_col}; border: 1px solid {card_border}; border-radius: 10px; padding: 8px; }}
+        QComboBox {{ background: {btn_bg}; color: {btn_text}; border: 1px solid {card_border}; border-radius: 9px; padding: 6px; }}
         QLineEdit {{
             background-color: {card_bg};
             color: {text_col};
@@ -123,7 +141,7 @@ def build_dock_qss(colors, drag_highlight=False):
             border-radius: 13px;
             padding: 6px 12px;
             font-size: 12px;
-            font-weight: 600;
+            font-weight: 400;
         }}
         QLineEdit:focus {{
             border-color: rgba({acc_r}, {acc_g}, {acc_b}, 200);
@@ -133,33 +151,37 @@ def build_dock_qss(colors, drag_highlight=False):
             color: {btn_text};
             border: 1px solid {card_border};
             border-radius: 12px;
-            padding: 4px 10px;
+            padding: 6px 10px;
             font-size: 11px;
             font-weight: 600;
         }}
         QPushButton#HeaderBtn:hover, QPushButton#BackBtn:hover, QPushButton#GearBtn:hover {{
             background: rgba({acc_r}, {acc_g}, {acc_b}, 200);
             border-color: rgba({acc_r}, {acc_g}, {acc_b}, 240);
-            color: white;
+            color: {active_text};
         }}
         QPushButton#HeaderBtn:checked {{
             background: rgba({acc_r}, {acc_g}, {acc_b}, 225);
             border-color: rgba({acc_r}, {acc_g}, {acc_b}, 255);
-            color: white;
+            color: {active_text};
         }}
         QPushButton#CaptureBtn {{
             background: {cap_bg};
             color: {cap_text};
-            border: 1px solid rgba(16, 185, 129, 120);
+            border: 1px solid {card_border};
             border-radius: 12px;
             padding: 4px 10px;
             font-size: 11px;
             font-weight: 600;
         }}
         QPushButton#CaptureBtn:hover {{
-            background: rgba(16, 185, 129, 190);
-            color: white;
+            background: #a1a1aa;
+            color: #18181b;
         }}
+        QPushButton#NoteBtn {{ background: {btn_bg}; color: {btn_text}; border: 1px solid {card_border}; border-radius: 10px; padding: 5px 10px; font-size: 11px; }}
+        QPushButton#NoteBtn:hover {{ background: rgba({acc_r}, {acc_g}, {acc_b}, 80); border-color: rgba({acc_r}, {acc_g}, {acc_b}, 170); }}
+        QPushButton#CardAction {{ background: transparent; border: 1px solid transparent; border-radius: 8px; }}
+        QPushButton#CardAction:hover {{ background: rgba({acc_r}, {acc_g}, {acc_b}, 70); border-color: rgba({acc_r}, {acc_g}, {acc_b}, 110); }}
         QPushButton#CloseBtn {{
             background: {btn_bg};
             color: {btn_text};
@@ -169,8 +191,8 @@ def build_dock_qss(colors, drag_highlight=False):
             font-weight: 600;
         }}
         QPushButton#CloseBtn:hover {{
-            background: rgba(239, 68, 68, 210);
-            color: white;
+            background: #b91c1c;
+            color: #ffffff;
         }}
         QPushButton#ModeBtn {{
             background: {btn_bg};
@@ -184,11 +206,11 @@ def build_dock_qss(colors, drag_highlight=False):
         QPushButton#ModeBtn:hover {{
             background: rgba({acc_r}, {acc_g}, {acc_b}, 170);
             border-color: rgba({acc_r}, {acc_g}, {acc_b}, 220);
-            color: white;
+            color: {active_text};
         }}
         QPushButton#ModeBtn:checked {{
             background: rgba({acc_r}, {acc_g}, {acc_b}, 225);
-            color: white;
+            color: {active_text};
             border-color: rgba({acc_r}, {acc_g}, {acc_b}, 255);
         }}
         #DragHandle {{

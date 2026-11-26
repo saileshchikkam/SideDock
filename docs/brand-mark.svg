@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-labelledby="title">
+  <title id="title">SideDock application icon</title>
+  <rect x="3" y="3" width="94" height="94" rx="23" fill="#18181b"/>
+  <rect x="19" y="23" width="62" height="54" rx="8" fill="none" stroke="#f4f4f5" stroke-width="3"/>
+  <rect x="66" y="28" width="10" height="44" rx="4" fill="#f4f4f5"/>
+  <path d="M28.5 36.5H50.5M28.5 47.5H44.5M28.5 58.5H48.5" stroke="#71717a" stroke-width="3" stroke-linecap="round"/>
+</svg>

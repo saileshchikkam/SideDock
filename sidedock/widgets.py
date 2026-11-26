@@ -1,12 +1,14 @@
 import ctypes
-from PySide6.QtCore import QMimeData, Qt, QTimer, QUrl
+from PySide6.QtCore import QMimeData, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QDrag, QImage
 from PySide6.QtWidgets import (
     QApplication,
     QFrame,
     QHBoxLayout,
     QLabel,
+    QComboBox,
     QPushButton,
+    QProgressBar,
     QVBoxLayout,
     QWidget,
 )
@@ -16,10 +18,15 @@ WS_EX_NOACTIVATE = 0x08000000
 
 
 class DraggableCard(QFrame):
-    def __init__(self, item, is_dark, on_click_cb, on_drag_state_cb):
+    def __init__(self, item, colors, on_click_cb, on_drag_state_cb):
         super().__init__()
         self.item = item
-        self.is_dark = is_dark
+        self.is_dark = colors['is_dark']
+        self.accent = colors['accent']
+        self.setObjectName('ClipboardCard')
+        self.flash_timer = QTimer(self)
+        self.flash_timer.setSingleShot(True)
+        self.flash_timer.timeout.connect(self._reset_flash)
         self.on_click_cb = on_click_cb
         self.on_drag_state_cb = on_drag_state_cb
         self._drag_start = None
@@ -28,37 +35,33 @@ class DraggableCard(QFrame):
         self.apply_default_style()
 
     def apply_default_style(self):
-        is_fav = self.item.get("pinned", False)
-        if self.is_dark:
-            bg = "rgba(255, 255, 255, 18)"
-            border = "rgba(250, 204, 21, 145)" if is_fav else "rgba(255, 255, 255, 24)"
-        else:
-            bg = "rgba(15, 23, 42, 10)"
-            border = "rgba(202, 138, 4, 170)" if is_fav else "rgba(15, 23, 42, 26)"
-
+        favorite = self.item.get("pinned", False)
+        bg = "rgba(255,255,255,23)" if self.is_dark else "rgba(0,0,0,10)"
+        border = ("#71717a" if self.is_dark else "#a1a1aa") if favorite else ("#41414b" if self.is_dark else "#d4d4d8")
+        r, g, b = self.accent
         self.setStyleSheet(f"""
-            QFrame {{
+            QFrame#ClipboardCard {{
                 background-color: {bg};
                 border: 1px solid {border};
-                border-radius: 14px;
+                border-radius: 12px;
             }}
-            QFrame:hover {{
-                background-color: rgba(37, 99, 235, 55);
-                border-color: rgba(96, 165, 250, 170);
+            QFrame#ClipboardCard:hover {{
+                background-color: rgba({r},{g},{b},30);
+                border-color: rgba({r},{g},{b},130);
             }}
         """)
 
     def flash_copied(self):
         self.setStyleSheet("""
-            QFrame {
-                background-color: rgba(16, 185, 129, 55);
-                border: 1px solid rgba(52, 211, 153, 210);
-                border-radius: 14px;
+            QFrame#ClipboardCard {
+                background-color: rgba(22,163,74,35);
+                border: 1px solid #22c55e;
+                border-radius: 12px;
             }
         """)
         if self.copied_badge:
             self.copied_badge.show()
-        QTimer.singleShot(850, self._reset_flash)
+        self.flash_timer.start(850)
 
     def _reset_flash(self):
         if self.copied_badge:
@@ -91,8 +94,10 @@ class DraggableCard(QFrame):
             mime.setText(self.item["content"])
 
         drag.setMimeData(mime)
-        drag.exec(Qt.CopyAction)
-        self.on_drag_state_cb(False)
+        try:
+            drag.exec(Qt.CopyAction)
+        finally:
+            self.on_drag_state_cb(False)
 
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.LeftButton and not self._did_drag:
@@ -103,6 +108,7 @@ class DraggableCard(QFrame):
 
 
 class QuickPastePopup(QWidget):
+    slots_changed = Signal()
     def __init__(self, on_pick_callback):
         super().__init__()
         self.on_pick = on_pick_callback
@@ -139,13 +145,16 @@ class QuickPastePopup(QWidget):
 
         header = QHBoxLayout()
         self.title_label = QLabel("Also Copied (Ctrl+Alt+2/3)")
-        self.title_label.setStyleSheet("font-size: 11px; font-weight: 600; color: #93c5fd;")
+        self.title_label.setWordWrap(True)
+        self.title_label.setStyleSheet("font-size: 11px; font-weight: 600;")
         self.timer_label = QLabel("8s")
-        self.timer_label.setStyleSheet("font-size: 11px; color: #cbd5e1;")
+        self.timer_label.setStyleSheet("font-size: 11px;")
 
         dismiss_btn = QPushButton("×")
         dismiss_btn.setFixedSize(18, 18)
         dismiss_btn.setCursor(Qt.PointingHandCursor)
+        dismiss_btn.setObjectName("PopupClose")
+        dismiss_btn.setToolTip("Dismiss Quick-Paste")
         dismiss_btn.setStyleSheet("""
             QPushButton {
                 background: rgba(255, 255, 255, 18);
@@ -157,6 +166,7 @@ class QuickPastePopup(QWidget):
             }
             QPushButton:hover { background: rgba(239, 68, 68, 190); color: white; }
         """)
+        dismiss_btn.setStyleSheet("")
         dismiss_btn.clicked.connect(self.dismiss)
 
         header.addWidget(self.title_label)
@@ -164,6 +174,12 @@ class QuickPastePopup(QWidget):
         header.addWidget(self.timer_label)
         header.addWidget(dismiss_btn)
         self.layout_box.addLayout(header)
+        self.progress = QProgressBar()
+        self.progress.setRange(0, 8)
+        self.progress.setValue(8)
+        self.progress.setTextVisible(False)
+        self.progress.setFixedHeight(3)
+        self.layout_box.addWidget(self.progress)
 
         self.slots_layout = QVBoxLayout()
         self.slots_layout.setSpacing(6)
@@ -171,6 +187,24 @@ class QuickPastePopup(QWidget):
 
         self.countdown = QTimer(self)
         self.countdown.timeout.connect(self.tick)
+
+    def apply_theme(self, colors):
+        dark = colors["is_dark"]
+        bg = "#18181b" if dark else "#fafafa"
+        fg = "#f4f4f5" if dark else "#18181b"
+        border = "#3f3f46" if dark else "#d4d4d8"
+        surface = "#27272a" if dark else "#f4f4f5"
+        r, g, b = colors["accent"]
+        self.container.setStyleSheet(f"""
+            #QuickPopup {{ background: {bg}; border: 1px solid {border}; border-radius: 16px; }}
+            QLabel {{ color: {fg}; font-family: 'Segoe UI'; font-weight: 500; }}
+            QPushButton {{ background: {surface}; color: {fg}; border: 1px solid {border};
+                           border-radius: 9px; padding: 7px 9px; text-align: left; font-size: 12px; }}
+            QPushButton:hover {{ border-color: rgb({r},{g},{b}); }}
+            QPushButton#PopupClose {{ padding: 0px; text-align: center; border: none; }}
+            QProgressBar {{ background: {border}; border: none; border-radius: 1px; }}
+            QProgressBar::chunk {{ background: rgb({r},{g},{b}); border-radius: 1px; }}
+        """)
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -185,10 +219,12 @@ class QuickPastePopup(QWidget):
             return
         self.title_label.setText(title_text)
         self.slot_map = {num: item for num, item in numbered_items}
+        self.slots_changed.emit()
         self.render_slots()
 
         self.seconds_left = 8
         self.timer_label.setText("8s")
+        self.progress.setValue(8)
         self.show()
         self.countdown.start(1000)
 
@@ -201,21 +237,6 @@ class QuickPastePopup(QWidget):
         for num, item in self.slot_map.items():
             btn = QPushButton()
             btn.setCursor(Qt.PointingHandCursor)
-            btn.setStyleSheet("""
-                QPushButton {
-                    background: rgba(255, 255, 255, 16);
-                    color: #e2e8f0;
-                    border: 1px solid rgba(255, 255, 255, 25);
-                    border-radius: 12px;
-                    padding: 7px 10px;
-                    text-align: left;
-                    font-size: 12px;
-                }
-                QPushButton:hover {
-                    background: rgba(37, 99, 235, 120);
-                    border-color: rgba(96, 165, 250, 200);
-                }
-            """)
             if item["type"] == "image":
                 btn.setText(f"[{num}]  🖼️ Screenshot / Image")
             elif item["type"] == "file":
@@ -235,6 +256,7 @@ class QuickPastePopup(QWidget):
 
     def tick(self):
         self.seconds_left -= 1
+        self.progress.setValue(max(0, self.seconds_left))
         if self.seconds_left <= 0:
             self.dismiss()
         else:
@@ -243,6 +265,7 @@ class QuickPastePopup(QWidget):
     def dismiss(self):
         self.countdown.stop()
         self.slot_map.clear()
+        self.slots_changed.emit()
         self.hide()
 
     def pick_number(self, num):
@@ -250,6 +273,7 @@ class QuickPastePopup(QWidget):
         if item is None:
             return
 
+        self.slots_changed.emit()
         self.on_pick(item)
         if self.slot_map and self.seconds_left > 0:
             self.render_slots()
@@ -273,7 +297,7 @@ class SettingsPanel(QWidget):
         back_btn.setObjectName("BackBtn")
         back_btn.setCursor(Qt.PointingHandCursor)
         back_btn.clicked.connect(on_back_cb)
-        heading = QLabel("Appearance")
+        heading = QLabel("Settings")
         heading.setStyleSheet("font-size: 13px; font-weight: 700;")
         top.addWidget(back_btn)
         top.addStretch()
@@ -320,6 +344,83 @@ class SettingsPanel(QWidget):
 
         layout.addStretch()
         self.sync_buttons()
+
+    def add_capture_control(self, paused, callback):
+        button = QPushButton("Pause clipboard capture")
+        button.setObjectName("ModeBtn")
+        button.setCheckable(True)
+        self.capture_button = button
+        button.setChecked(paused)
+        button.toggled.connect(callback)
+        self.layout().insertWidget(self.layout().count() - 1, button)
+        note = QLabel("Paused capture skips automatic clipboard monitoring. Manual drops and saved items remain available.")
+        note.setObjectName("SubLabel")
+        note.setWordWrap(True)
+        self.layout().insertWidget(self.layout().count() - 1, note)
+
+    def add_shortcut_controls(self, callback):
+        """Expose shortcut state immediately below the capture control."""
+        layout = self.layout()
+        hint = QLabel("KEYBOARD SHORTCUTS")
+        hint.setObjectName("SubLabel")
+        layout.insertWidget(layout.count() - 1, hint)
+        self.shortcut_toggle = QPushButton("Enable global shortcuts")
+        self.shortcut_toggle.setObjectName("ModeBtn")
+        self.shortcut_toggle.setCheckable(True)
+        self.shortcut_toggle.setToolTip("Disable if shortcuts conflict with other applications")
+        self.shortcut_toggle.setChecked(bool(self.settings.get("shortcuts_enabled", True)))
+        self.shortcut_toggle.toggled.connect(lambda enabled: callback("enabled", enabled))
+        layout.insertWidget(layout.count() - 1, self.shortcut_toggle)
+        self.shortcut_preset = QComboBox()
+        self.shortcut_preset.addItem("Classic shortcuts", "classic")
+        self.shortcut_preset.addItem("Alternative shortcuts", "alternative")
+        self.shortcut_preset.setToolTip("Choose keyboard shortcuts for Quick-Paste")
+        self.shortcut_preset.currentIndexChanged.connect(lambda _: callback("preset", self.shortcut_preset.currentData()))
+        layout.insertWidget(layout.count() - 1, self.shortcut_preset)
+        self.shortcut_info = QLabel()
+        self.shortcut_info.setObjectName("SubLabel")
+        self.shortcut_info.setWordWrap(True)
+        layout.insertWidget(layout.count() - 1, self.shortcut_info)
+        self.sync_shortcut_controls()
+
+    def add_storage_controls(self, open_callback, cleanup_callback):
+        layout = self.layout()
+        title = QLabel("LOCAL STORAGE")
+        title.setObjectName("SubLabel")
+        layout.insertWidget(layout.count() - 1, title)
+        self.storage_usage = QLabel()
+        self.storage_usage.setObjectName("SubLabel")
+        self.storage_usage.setWordWrap(True)
+        layout.insertWidget(layout.count() - 1, self.storage_usage)
+        actions = QHBoxLayout()
+        open_btn = QPushButton("Open Folder")
+        open_btn.setObjectName("ModeBtn")
+        open_btn.setToolTip("Open SideDockData in File Explorer")
+        open_btn.clicked.connect(open_callback)
+        clean_btn = QPushButton("Clean Copies")
+        clean_btn.setObjectName("ModeBtn")
+        clean_btn.setToolTip("Review and remove unused SideDock-managed file copies only")
+        clean_btn.clicked.connect(cleanup_callback)
+        actions.addWidget(open_btn)
+        actions.addWidget(clean_btn)
+        layout.insertLayout(layout.count() - 1, actions)
+
+    def set_storage_usage(self, message):
+        if hasattr(self, "storage_usage"):
+            self.storage_usage.setText(message)
+
+    def sync_shortcut_controls(self):
+        if not hasattr(self, "shortcut_toggle"):
+            return
+        for control in (self.shortcut_toggle, self.shortcut_preset):
+            control.blockSignals(True)
+        self.shortcut_toggle.setChecked(bool(self.settings.get("shortcuts_enabled", True)))
+        preset = self.settings.get("shortcut_preset", "classic")
+        self.shortcut_preset.setCurrentIndex(1 if preset == "alternative" else 0)
+        for control in (self.shortcut_toggle, self.shortcut_preset):
+            control.blockSignals(False)
+        binding = "Ctrl+Alt+V · Ctrl+Shift+Alt+1/2/3" if preset == "alternative" else "Ctrl+Shift+V · Ctrl+Alt+1/2/3"
+        self.shortcut_info.setText("Open Quick-Paste · Select visible slots\n" + binding + "\nCtrl+V pastes normally and may show remaining slots.")
 
     def sync_buttons(self):
         current_mode = self.settings.get("mode", "deep_dark")
