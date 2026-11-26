@@ -189,11 +189,11 @@ For troubleshooting, startup options and complete build prerequisites, see [Inst
 
 | Action | Classic (default) | Alternative |
 | --- | --- | --- |
-| Native paste; recent copied cards appear in a small 8-second popup when 2+ items exist, even after restarting | `Ctrl + V` | `Ctrl + V` |
+| Paste the newest item normally; only after 2+ copies close together, offer the earlier 1–2 copies in an 8-second popup once | `Ctrl + V` | `Ctrl + V` |
 | Open Quick-Paste | **`Ctrl + Shift + V`** | **`Ctrl + Alt + V`** |
 | Select recent slot 1/2/3 when visible | `Ctrl + Alt + 1/2/3` | `Ctrl + Shift + Alt + 1/2/3` |
 
-**Enable SideDock shortcuts** is ON by default in **Settings → Keyboard Shortcuts** and the tray menu. **Ctrl+Shift+V** (Classic) opens Quick-Paste directly. Ordinary **Ctrl+V** always pastes normally; when two or more copied items exist, it also offers the three most recent copied cards for eight seconds. These remain accessible after restarting SideDock and after repeated pastes. You may disable the SideDock shortcuts if they conflict with another app, without disabling Windows Ctrl+V. Numbered shortcuts only work while their popup slots are visible.
+**Enable SideDock shortcuts** is ON by default for new installs in **Settings → Keyboard Shortcuts** and the tray menu (existing opt-out choices are preserved). **Ctrl+Shift+V** (Classic) opens Quick-Paste history manually. When you copy **two or three items in quick succession** (up to 20 seconds between copies) and then press ordinary **Ctrl+V** within 45 seconds of the last copy, SideDock lets Windows paste the newest item first and offers **only the earlier one or two** at the bottom-right for eight seconds. This offer is **one-time per rapid-copy sequence**: single copies, older saved history, repeat Ctrl+V and old clipboard data after restart do not automatically trigger it. The earlier copies appear as slots 2/3 (Classic: Ctrl+Alt+2/3). You may disable SideDock shortcuts if they conflict with another app without disabling Windows Ctrl+V.
 
 ## Your data stays on your PC
 

@@ -51,7 +51,7 @@ from sidedock.branding import app_icon
 from sidedock.autostart import is_enabled as autostart_enabled, set_enabled as set_autostart_enabled
 from sidedock.version import __version__
 from sidedock.presentation import card_kind, preview_text
-from sidedock.interaction import shortcut_keys, select_paste_target, recent_copy_slots
+from sidedock.interaction import shortcut_keys, select_paste_target, CopyBurst
 from sidedock.storage import atomic_write_json, can_capture, file_digest, managed_bytes, orphaned_managed_copies, cleanup_orphaned_copies, MAX_FILE_BYTES, MAX_TEXT_BYTES, MAX_MANAGED_BYTES
 from sidedock.ocr import find_tesseract, extract_text_from_png
 from sidedock.composer import NoteComposer, OCRWorkspace
@@ -137,7 +137,7 @@ class SideDock(QWidget):
         self._is_dragging_dock = False
         self.is_pinned = False
         self.is_expanded = False
-        self.rapid_buffer = []
+        self.copy_burst = CopyBurst()
         self._search_target = None
         self._paste_generation = 0
         self._internal_paste_popup_guard_until = 0.0
@@ -483,6 +483,9 @@ class SideDock(QWidget):
 
     def set_shortcuts_enabled(self, enabled):
         self.settings["shortcuts_enabled"] = enabled
+        if not enabled:
+            # An explicit opt-out cancels any pending rapid-copy offer.
+            self.copy_burst.clear()
         self.settings_panel.sync_shortcut_controls()
         if hasattr(self, "tray_shortcuts"):
             self.tray_shortcuts.blockSignals(True)
@@ -613,7 +616,7 @@ class SideDock(QWidget):
         self._last_clip_seq = user32.GetClipboardSequenceNumber()
         self._ignore_clipboard = False
         self.settings["capture_paused"] = paused
-        self.rapid_buffer = []
+        self.copy_burst.clear()
         self.quick_popup.dismiss()
         self.save_json(self.settings_file, self.settings)
 
@@ -724,7 +727,7 @@ class SideDock(QWidget):
         removed = [item for item in self.saved_items if not item.get("pinned")]
         self.save_json(self.index_file, kept)
         self.saved_items = kept
-        self.rapid_buffer = []
+        self.copy_burst.clear()
         self.quick_popup.dismiss()
         for item in removed:
             self.remove_managed_file(item)
@@ -781,16 +784,17 @@ class SideDock(QWidget):
                 or self._editing
                 or time.monotonic() < self._internal_paste_popup_guard_until):
             return
-        # Use saved clipboard history: the previous rapid_buffer was cleared
-        # after the first paste and recreated empty after each restart.
-        numbered = recent_copy_slots(self.saved_items)
-        if numbered:
+        # Offer previous copies ONLY for a fresh, rapid multi-copy batch.
+        # Native Ctrl+V already pasted slot 1 (the most recent copy).
+        # Never show old saved history or show the newest item again.
+        remaining = self.copy_burst.consume_remaining(time.monotonic())
+        if remaining:
             self.quick_popup.show_slots(
-                numbered, f"Recent copies ({self.shortcut_keys()[2]}+1/2/3)"
+                remaining, f"Also copied ({self.shortcut_keys()[2]}+2/3)"
             )
 
     def open_all_slots_popup(self):
-        items = self.rapid_buffer if self.rapid_buffer else self.saved_items[:3]
+        items = self.copy_burst.items if self.copy_burst.items else self.saved_items[:3]
         numbered = list(enumerate(items[:3], start=1))
         if not self.settings.get("shortcuts_enabled", True):
             return
@@ -799,6 +803,9 @@ class SideDock(QWidget):
     def paste_item_now(self, item):
         if item["type"] in ("image", "file") and not Path(item["path"]).exists():
             return
+        # Explicitly choosing a card/Quick-Paste item completes the manual
+        # workflow; do not surprise the user with a later Ctrl+V offer.
+        self.copy_burst.clear()
         if item["type"] == "image":
             self.copy_image_back(item["path"])
         elif item["type"] == "file":
@@ -1068,8 +1075,10 @@ class SideDock(QWidget):
         self.saved_items.insert(0, item)
         self.refresh_storage_usage()
         if rapid:
-            self.rapid_buffer.insert(0, item)
-            self.rapid_buffer = self.rapid_buffer[:3]
+            # A new copy invalidates any still-visible previous selection.
+            if self.quick_popup.slot_map:
+                self.quick_popup.dismiss()
+            self.copy_burst.record(item, time.monotonic())
         self.refresh_list()
 
     def safe_process_mime(self, mime):
@@ -1270,7 +1279,7 @@ class SideDock(QWidget):
             remaining.remove(item)
             self.save_json(self.index_file, remaining)
             self.saved_items = remaining
-        self.rapid_buffer = [entry for entry in self.rapid_buffer if entry is not item]
+        self.copy_burst.forget(item)
         self.quick_popup.dismiss()
         self.remove_managed_file(item)
         self.refresh_list()

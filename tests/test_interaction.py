@@ -1,6 +1,6 @@
 import unittest
 
-from sidedock.interaction import select_paste_target, shortcut_keys, recent_copy_slots
+from sidedock.interaction import select_paste_target, shortcut_keys, CopyBurst
 
 
 class InteractionTests(unittest.TestCase):
@@ -18,36 +18,88 @@ class InteractionTests(unittest.TestCase):
         self.assertEqual(shortcut_keys("alternative")[0], "ctrl+alt+v")
         self.assertEqual(shortcut_keys("invalid"), shortcut_keys("classic"))
 
-    def test_ctrl_v_shows_three_saved_copies_after_restart(self):
-        history = [
-            {"type": "text", "content": "third copied"},
-            {"type": "image", "path": "recent-image.png"},
-            {"type": "file", "name": "notes.pdf", "path": "notes.pdf"},
-        ]
-        self.assertEqual(recent_copy_slots(history), list(enumerate(history, 1)))
-        # Repeated normal paste must not consume or mutate the history.
-        self.assertEqual(recent_copy_slots(history), list(enumerate(history, 1)))
-        self.assertEqual(len(history), 3)
+    def test_multiple_copies_show_only_previous_two_after_native_paste(self):
+        burst = CopyBurst()
+        a = {"type": "text", "content": "A"}
+        b = {"type": "text", "content": "B"}
+        c = {"type": "text", "content": "C"}
+        burst.record(a, 100)
+        burst.record(b, 107)
+        burst.record(c, 113)
+        # Native Ctrl+V already pasted C; only B and A remain.
+        self.assertEqual(burst.consume_remaining(114), [(2, b), (3, a)])
+        self.assertEqual(burst.consume_remaining(115), [])
+        self.assertEqual(burst.items, [])
 
-    def test_ctrl_v_excludes_notes_and_uncopied_ocr_drafts(self):
-        history = [
-            {"type": "note", "content": "manual note"},
-            {"type": "text", "source": "ocr", "content": "extracted"},
-            {"type": "text", "content": "latest copy"},
-            {"type": "image", "path": "previous.png"},
-            {"type": "file", "name": "older.txt"},
-            {"type": "text", "content": "too old"},
-        ]
-        self.assertEqual(recent_copy_slots(history),
-                         [(1, history[2]), (2, history[3]), (3, history[4])])
+    def test_single_copy_never_triggers_popup_even_with_old_history(self):
+        # A new application session has NO active burst, even though disk
+        # history might contain years of saved copies.
+        burst = CopyBurst()
+        self.assertEqual(burst.consume_remaining(200), [])
+        burst.record({"type": "text", "content": "A"}, 200)
+        self.assertEqual(burst.consume_remaining(201), [])
+        self.assertEqual(burst.consume_remaining(202), [])
 
-    def test_ctrl_v_keeps_native_paste_when_history_is_too_short(self):
-        self.assertEqual(recent_copy_slots([]), [])
-        self.assertEqual(recent_copy_slots([{"type": "text", "content": "only copy"}]), [])
-        self.assertEqual(recent_copy_slots([{"type": "note", "content": "note"},
-                                            {"type": "text", "content": "only copy"}]), [])
+    def test_two_rapid_copies_show_only_the_older_one(self):
+        burst = CopyBurst()
+        a = {"type": "text", "content": "A"}
+        b = {"type": "text", "content": "B"}
+        burst.record(a, 100)
+        burst.record(b, 106)
+        self.assertEqual(burst.consume_remaining(110), [(2, a)])
 
-    def test_ctrl_v_ignores_malformed_history_records(self):
-        history = [None, "corrupted", {"type": "text", "content": "one"},
-                   {"type": "text", "content": "two"}]
-        self.assertEqual(recent_copy_slots(history), [(1, history[2]), (2, history[3])])
+    def test_distant_copies_do_not_form_a_burst(self):
+        burst = CopyBurst()
+        burst.record({"type": "text", "content": "A"}, 10)
+        burst.record({"type": "text", "content": "B"}, 35)
+        self.assertEqual(burst.consume_remaining(36), [])
+        burst.record({"type": "text", "content": "C"}, 37)
+        self.assertEqual(len(burst.consume_remaining(38)), 1)
+
+    def test_old_burst_expires_before_ctrl_v(self):
+        burst = CopyBurst()
+        burst.record({"type": "text", "content": "A"}, 1)
+        burst.record({"type": "text", "content": "B"}, 5)
+        self.assertEqual(burst.consume_remaining(51), [])
+        self.assertEqual(burst.items, [])
+
+    def test_burst_resets_after_paste_for_next_copy_sequence(self):
+        burst = CopyBurst()
+        burst.record({"type": "text", "content": "A"}, 1)
+        burst.record({"type": "text", "content": "B"}, 2)
+        self.assertEqual(len(burst.consume_remaining(3)), 1)
+        burst.record({"type": "text", "content": "C"}, 4)
+        self.assertEqual(burst.consume_remaining(5), [])  # single fresh copy
+
+    def test_notes_and_ocr_drafts_are_not_copy_events(self):
+        burst = CopyBurst()
+        burst.record({"type": "text", "content": "A"}, 1)
+        burst.record({"type": "note", "content": "A note"}, 2)
+        burst.record({"type": "text", "source": "ocr", "content": "OCR draft"}, 3)
+        self.assertEqual(burst.consume_remaining(4), [])
+
+    def test_delete_or_pause_cancels_earlier_popup_candidates(self):
+        burst = CopyBurst()
+        a = {"type": "text", "content": "A"}
+        b = {"type": "text", "content": "B"}
+        burst.record(a, 1)
+        burst.record(b, 2)
+        burst.forget(a)
+        self.assertEqual(burst.consume_remaining(3), [])
+        burst.record(a, 4)
+        burst.record(b, 5)
+        burst.clear()
+        self.assertEqual(burst.consume_remaining(6), [])
+
+    def test_burst_keeps_only_last_three_of_many_quick_copies(self):
+        burst = CopyBurst()
+        copies = [{"type": "text", "content": chr(65+i)} for i in range(5)]
+        for i, item in enumerate(copies):
+            burst.record(item, 10+i)
+        self.assertEqual(burst.consume_remaining(16), [(2, copies[3]), (3, copies[2])])
+
+    def test_copying_after_monotonic_clock_reset_starts_fresh_session(self):
+        burst = CopyBurst()
+        burst.record({"type": "text", "content": "A"}, 300)
+        burst.record({"type": "text", "content": "B"}, 1)
+        self.assertEqual(burst.consume_remaining(2), [])

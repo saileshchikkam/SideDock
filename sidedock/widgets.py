@@ -372,7 +372,7 @@ class SettingsPanel(QWidget):
         self.shortcut_toggle = QPushButton("Enable SideDock shortcuts")
         self.shortcut_toggle.setObjectName("ModeBtn")
         self.shortcut_toggle.setCheckable(True)
-        self.shortcut_toggle.setToolTip("On by default. Shows recent copies after Ctrl+V and enables Quick-Paste. Turn off only if another app conflicts.")
+        self.shortcut_toggle.setToolTip("Enabled by default for new users. Only shows earlier copies after a quick multi-copy sequence; disable SideDock hotkeys if they conflict with another app.")
         self.shortcut_toggle.setChecked(bool(self.settings.get("shortcuts_enabled", True)))
         self.shortcut_toggle.toggled.connect(lambda enabled: callback("enabled", enabled))
         layout.insertWidget(layout.count() - 1, self.shortcut_toggle)
@@ -425,7 +425,7 @@ class SettingsPanel(QWidget):
         for control in (self.shortcut_toggle, self.shortcut_preset):
             control.blockSignals(False)
         binding = "Ctrl+Alt+V · Ctrl+Shift+Alt+1/2/3" if preset == "alternative" else "Ctrl+Shift+V · Ctrl+Alt+1/2/3"
-        self.shortcut_info.setText("Open Quick-Paste · Select visible slots\n" + binding + "\nCtrl+V pastes normally and shows up to 3 saved recent copies for 8 seconds when at least two exist, even after restarting SideDock.")
+        self.shortcut_info.setText("Open Quick-Paste · Select visible slots\n" + binding + "\nCtrl+V pastes normally. Only when you copy 2+ items close together does it offer the earlier 1–2 copies, once, for 8 seconds. After a single copy, no popup.")
 
     def sync_buttons(self):
         current_mode = self.settings.get("mode", "deep_dark")
