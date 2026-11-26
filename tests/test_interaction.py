@@ -103,3 +103,10 @@ class InteractionTests(unittest.TestCase):
         burst.record({"type": "text", "content": "A"}, 300)
         burst.record({"type": "text", "content": "B"}, 1)
         self.assertEqual(burst.consume_remaining(2), [])
+
+    def test_manual_drop_does_not_join_copy_burst(self):
+        from pathlib import Path
+        source = (Path(__file__).resolve().parents[1] / "sidedock" / "main.py").read_text(encoding="utf-8")
+        self.assertIn("self.safe_process_mime(event.mimeData(), rapid=False)", source)
+        self.assertIn("def process_mime(self, mime, rapid=True):", source)
+        self.assertIn("self.copy_burst.record(item, time.monotonic())", source)

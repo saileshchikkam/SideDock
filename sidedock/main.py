@@ -1015,7 +1015,8 @@ class SideDock(QWidget):
         if self._is_dragging_out:
             return
         self.apply_theme(drag_highlight=False)
-        self.safe_process_mime(event.mimeData())
+        # Dragging items into the dock is not a Ctrl+C copying burst.
+        self.safe_process_mime(event.mimeData(), rapid=False)
         event.acceptProposedAction()
 
     def toggle_pin(self, checked):
@@ -1081,13 +1082,13 @@ class SideDock(QWidget):
             self.copy_burst.record(item, time.monotonic())
         self.refresh_list()
 
-    def safe_process_mime(self, mime):
+    def safe_process_mime(self, mime, rapid=True):
         try:
-            self.process_mime(mime)
+            self.process_mime(mime, rapid=rapid)
         except (OSError, ValueError):
             logging.exception("SideDock could not capture an item")
 
-    def process_mime(self, mime):
+    def process_mime(self, mime, rapid=True):
         if mime is None or not can_capture(self.saved_items):
             return
         if mime.hasUrls() and any(url.isLocalFile() for url in mime.urls()):
@@ -1100,7 +1101,7 @@ class SideDock(QWidget):
                 latest = self.saved_items[0] if self.saved_items else {}
                 if src.is_dir():
                     if latest.get("path") != str(src):
-                        self.record_new_item({"type": "file", "name": src.name, "path": str(src)})
+                        self.record_new_item({"type": "file", "name": src.name, "path": str(src)}, rapid=rapid)
                     continue
                 size = src.stat().st_size
                 if size > MAX_FILE_BYTES or managed_bytes(self.files_dir) + size > MAX_MANAGED_BYTES:
@@ -1114,7 +1115,7 @@ class SideDock(QWidget):
                     shutil.copy2(src, dest)
                     if dest.stat().st_size > size:
                         raise ValueError("File grew during capture")
-                    self.record_new_item({"type": kind, "path": str(dest), "hash": digest, "name": src.name})
+                    self.record_new_item({"type": kind, "path": str(dest), "hash": digest, "name": src.name}, rapid=rapid)
                 except (OSError, ValueError):
                     dest.unlink(missing_ok=True)
                     raise
@@ -1138,7 +1139,7 @@ class SideDock(QWidget):
             file_path = self.files_dir / f"img_{uuid.uuid4().hex}.png"
             try:
                 file_path.write_bytes(img_bytes)
-                self.record_new_item({"type": "image", "path": str(file_path), "hash": img_hash})
+                self.record_new_item({"type": "image", "path": str(file_path), "hash": img_hash}, rapid=rapid)
             except (OSError, ValueError):
                 file_path.unlink(missing_ok=True)
                 raise
@@ -1150,7 +1151,7 @@ class SideDock(QWidget):
                 return
             if self.saved_items and self.saved_items[0].get("content") == text:
                 return
-            self.record_new_item({"type": "text", "content": text})
+            self.record_new_item({"type": "text", "content": text}, rapid=rapid)
 
     def matches_query(self, item, query):
         if not query:
