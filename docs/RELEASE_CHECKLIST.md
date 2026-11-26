@@ -1,4 +1,4 @@
-# SideDock v1.0.0 release candidate — acceptance checklist
+# SideDock v1.0.0 — public source and distribution acceptance checklist
 
 ## Automated evidence
 
@@ -9,7 +9,8 @@
 - [x] Per-user setup installed successfully with **Start with Windows selected**, registered the expected HKCU Run entry, and removed it on uninstall.
 - [x] SHA-256 checksums generated and the **single-installer** artifact uploaded.
 - [x] Installer startup smoke test on the runner measured **0.39 seconds** (not a full Windows login-time test).
-- [ ] Full native Windows desktop interaction, security and restart-delay acceptance remains required.
+- [ ] Full native Windows desktop interaction on both Windows 10 and Windows 11 and additional security review remain desirable before claiming comprehensive platform certification.
+- [x] Maintainer has reported satisfactory core functionality on a Windows laptop, with startup apps appearing a few minutes after sign-in.
 
 Evidence: [Windows Actions run 45841684301](https://github.com/saileshchikkam/SideDock/actions/runs/45841684301), commit `7b521ac`. The artifact includes only one installer EXE, wrapped automatically in a GitHub Actions ZIP. Automated checks do **not** simulate a user's actual complete reboot, foreground hooks or multi-monitor desktop session.
 
@@ -59,8 +60,8 @@ Test at least one Windows 10 and one Windows 11 environment before claiming both
 - [ ] All critical native acceptance tests completed.
 - [ ] No known blocking clipboard, focus, startup or data-loss regressions.
 - [x] Maintainer selected MIT License; LICENSE file committed to the release branch.
-- [ ] Privacy and unsigned executable limitations acknowledged.
-- [ ] Maintainer reviews and approves merge to main.
+- [x] Privacy and unsigned executable limitations documented in the public README and security guide.
+- [x] Maintainer explicitly approved PR #1 merge to `main` (November 26, 2026).
 - [ ] Final main build passes.
 - [ ] Installer tested on real Windows 10 and Windows 11 desktops.
 - [ ] Maintainer creates the version tag and publishes the matching executable and checksum to GitHub Releases.

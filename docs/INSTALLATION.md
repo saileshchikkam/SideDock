@@ -2,13 +2,13 @@
 
 > [← Back to the project README](../README.md) · [Security](../SECURITY.md) · [Report a problem](https://github.com/saileshchikkam/SideDock/issues)
 
-This guide is for the **unsigned v1.0.0 release candidate**. Download only from this repository or a release page controlled by its maintainer. A Microsoft Defender warning can occur with an unsigned executable; this does not prove the file is safe or malicious.
+This guide is for the **unsigned v1.0.0 Windows installer**, distributed through GitHub Actions until a dedicated GitHub Release asset is published. Download only from this repository or a release page controlled by its maintainer. A Microsoft Defender warning can occur with an unsigned executable; this does not prove the file is safe or malicious.
 
 ## A. Recommended: installer (no Python required)
 
 **Requirements:** Windows 10 or 11 (64-bit), permission to run programs for your own Windows user account, and enough free disk space for the installed Qt and offline OCR components. A GitHub account may be required to download GitHub Actions artifacts.
 
-1. Open the [latest Windows build workflow](https://github.com/saileshchikkam/SideDock/actions/workflows/windows-build.yml). Choose a successful run on **`release/v1.0-hardening`**.
+1. Open the [latest Windows build workflow](https://github.com/saileshchikkam/SideDock/actions/workflows/windows-build.yml). Choose a successful run on **`main`**.
 2. Under **Artifacts**, download **SideDock-Windows-Installer**. GitHub Actions always wraps the artifact in a ZIP; it contains only `SideDock-Setup-1.0.0.exe`.
 3. Extract that ZIP. Scan the setup file using **Windows Security / Microsoft Defender**.
 4. Verify the installer checksum with PowerShell:
@@ -54,7 +54,7 @@ For developers only; normal Windows users should use section A.
    ```powershell
    git clone https://github.com/saileshchikkam/SideDock.git
    cd SideDock
-   git switch release/v1.0-hardening
+   git switch main
 
    py -3.12 -m venv .venv
    .\.venv\Scripts\python.exe -m pip install --upgrade pip
@@ -86,9 +86,9 @@ The verified installer appears in `dist/SideDock-Setup-1.0.0.exe`. It contains t
 | --- | --- |
 | No SideDock after installation | Check the system tray, hover near the selected screen edge, or start it once from the Start Menu. |
 | SideDock starts late after reboot | Windows can stagger startup applications. Look for it after sign-in; this build avoids slow one-file extraction. |
-| SmartScreen shows Unknown publisher | The beta is unsigned. Verify the exact download and Defender scan; do not turn off security protection. |
+| SmartScreen shows Unknown publisher | The current installer is unsigned. Verify the exact download and Defender scan; do not turn off security protection. |
 | OCR finds no text | Select a readable region with sufficiently large text; try a clearer screenshot or a saved image. |
-| Screenshot region seems offset | Use the latest beta, and report Windows display scaling and monitor arrangement in an issue. |
+| Screenshot region seems offset | Use the latest successful main-branch installer, and report Windows display scaling and monitor arrangement in an issue. |
 | A hotkey conflicts with another app | Change the shortcut preset or disable global shortcuts in Settings. |
 | Installer ZIP contains multiple files | You have an older artifact. Choose **SideDock-Windows-Installer**, not **SideDock-Windows**. |
 | A note or screenshot has sensitive information | Remove it from SideDock history. Local saved data is not encrypted. |

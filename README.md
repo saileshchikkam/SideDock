@@ -24,7 +24,7 @@
 </p>
 
 > [!IMPORTANT]
-> **Current status: v1.0.0 release candidate.** A Windows installer is available from the successful [GitHub Actions builds](https://github.com/saileshchikkam/SideDock/actions/workflows/windows-build.yml). Full Windows 10/11 acceptance and final stable release publication are not yet complete. The executable is **unsigned** and may trigger Microsoft Defender SmartScreen. See [safe installation instructions](docs/INSTALLATION.md).
+> **SideDock v1.0.0 — public source edition.** The source and MIT license are published on the default `main` branch. The Windows installer is distributed through verified [GitHub Actions builds](https://github.com/saileshchikkam/SideDock/actions/workflows/windows-build.yml) while a dedicated GitHub Release asset is pending. The executable is **unsigned**, and Windows may show Microsoft Defender SmartScreen. See [safe installation instructions](docs/INSTALLATION.md).
 
 <p align="center">
   <img src="docs/assets/product-preview.svg" width="1100" alt="Illustrated SideDock product concept: edge dock with searchable note and OCR text cards">
@@ -124,7 +124,7 @@ SideDock works **alongside**, not instead of, standard Windows tools. Apps that 
 **All most people need:** Windows 10 or 11 (64-bit). **No Python, pip, Git, coding tools or separate OCR installation required.**
 
 1. Open the **[Windows installer builds](https://github.com/saileshchikkam/SideDock/actions/workflows/windows-build.yml)**.
-2. Choose the latest successful run on the `release/v1.0-hardening` branch.
+2. Choose the latest successful run on the **`main`** branch.
 3. In **Artifacts**, download **SideDock-Windows-Installer**, then extract the ZIP. GitHub wraps artifacts in a ZIP even when they contain a single file.
 4. Run `SideDock-Setup-1.0.0.exe`. It installs SideDock for your Windows user with Start Menu access and an optional desktop shortcut.
 5. **Start SideDock when I sign in to Windows** is selected by default. You can uncheck this during setup or toggle it later from SideDock's tray menu.
@@ -160,7 +160,7 @@ In **PowerShell**:
 ```powershell
 git clone https://github.com/saileshchikkam/SideDock.git
 cd SideDock
-git switch release/v1.0-hardening
+git switch main
 
 py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install --upgrade pip
@@ -252,13 +252,13 @@ Yes, if **Start with Windows** stays selected during installation. It registers 
 
 <details><summary><strong>Why did Microsoft Defender SmartScreen warn me?</strong></summary>
 
-The beta installer is **unsigned** and does not yet have established publisher reputation. Verify the file's source and checksum, scan it, and follow your organization's security policy. Do not disable Defender or override malware detections. See the [visual installation guide](docs/INSTALLATION.md).
+The current installer is **unsigned** and may not have established publisher reputation. Verify the file's source and checksum, scan it, and follow your organization's security policy. Do not disable Defender or override malware detections. See the [visual installation guide](docs/INSTALLATION.md).
 
 </details>
 
 <details><summary><strong>Why is there a ZIP if I only want one EXE?</strong></summary>
 
-GitHub Actions wraps artifacts in ZIP files. The current **SideDock-Windows-Installer** artifact contains one installer EXE. A future approved GitHub Release will expose that EXE as a directly downloadable release asset.
+GitHub Actions wraps artifacts in ZIP files. The current **SideDock-Windows-Installer** artifact contains one installer EXE. A separately published GitHub Release can expose that EXE as a directly downloadable asset; no such asset has been published yet.
 
 </details>
 

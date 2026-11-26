@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.0 — Release candidate
+## 1.0.0 — Public source edition
 
 ### Core
 - Edge-peek, smooth expand/collapse, pinning, resize and movable dock.
@@ -18,7 +18,7 @@
 - Improved card hierarchy, capture state, history counts and empty states.
 - Theme-aware Quick-Paste with countdown feedback.
 
-### Final UX refinement (beta)
+### Final UX refinement
 - Stronger Dark and Deep Dark contrast and improved tooltip/hover feedback.
 - Manual local notes, empty-state shortcut hints and shortcut configuration inside Settings.
 - Note editor and OCR review now live inside the dock instead of floating dialog windows.
@@ -44,4 +44,4 @@
 - Clipboard history and stored copies are not encrypted.
 - Executable is unsigned.
 - No automatic update mechanism; release artifacts are static snapshots.
-- MIT License is included; stable publication still awaits native Windows acceptance testing.
+- MIT License and public source are available on `main`; a direct downloadable GitHub Release asset and broader native Windows 10/11 coverage are still pending.
