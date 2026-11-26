@@ -52,9 +52,11 @@ class InteractionTests(unittest.TestCase):
         burst = CopyBurst()
         burst.record({"type": "text", "content": "A"}, 10)
         burst.record({"type": "text", "content": "B"}, 35)
-        self.assertEqual(burst.consume_remaining(36), [])
+        # 25 seconds apart: A is discarded and B starts a new session.
+        self.assertEqual([item["content"] for item in burst.items], ["B"])
         burst.record({"type": "text", "content": "C"}, 37)
-        self.assertEqual(len(burst.consume_remaining(38)), 1)
+        # B and C are 2 seconds apart: show B after C is pasted.
+        self.assertEqual([item["content"] for _, item in burst.consume_remaining(38)], ["B"])
 
     def test_old_burst_expires_before_ctrl_v(self):
         burst = CopyBurst()
