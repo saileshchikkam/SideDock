@@ -2,23 +2,26 @@
 
 > [← Back to the project README](../README.md) · [Security](../SECURITY.md) · [Report a problem](https://github.com/saileshchikkam/SideDock/issues)
 
-This guide is for the **unsigned v1.0.0 Windows installer**, distributed through GitHub Actions until a dedicated GitHub Release asset is published. Download only from this repository or a release page controlled by its maintainer. A Microsoft Defender warning can occur with an unsigned executable; this does not prove the file is safe or malicious.
+This guide is for the **unsigned v1.0.0 Windows installer**, distributed directly from the [official GitHub Release](https://github.com/saileshchikkam/SideDock/releases/tag/v1.0.0). Download only from this repository or a release page controlled by its maintainer. A Microsoft Defender warning can occur with an unsigned executable; this does not prove the file is safe or malicious.
 
 ## A. Recommended: installer (no Python required)
 
-**Requirements:** Windows 10 or 11 (64-bit), permission to run programs for your own Windows user account, and enough free disk space for the installed Qt and offline OCR components. A GitHub account may be required to download GitHub Actions artifacts.
+**Requirements:** Windows 10 or 11 (64-bit), permission to install software for your Windows user account, and enough free disk space for the bundled Qt and offline OCR components. **No GitHub login, Python, pip or ZIP extraction required.**
 
-1. Open the [latest Windows build workflow](https://github.com/saileshchikkam/SideDock/actions/workflows/windows-build.yml). Choose a successful run on **`main`**.
-2. Under **Artifacts**, download **SideDock-Windows-Installer**. GitHub Actions always wraps the artifact in a ZIP; it contains only `SideDock-Setup-1.0.0.exe`.
-3. Extract that ZIP. Scan the setup file using **Windows Security / Microsoft Defender**.
-4. Verify the installer checksum with PowerShell:
+<p align="center">
+<a href="https://github.com/saileshchikkam/SideDock/releases/download/v1.0.0/SideDock-Setup-1.0.0.exe"><img src="https://img.shields.io/badge/INSTALL%20SIDEDOCK-Download%20EXE%20directly-2563EB?style=for-the-badge&logo=windows&logoColor=white" width="440" alt="Direct Windows EXE installer download"></a>
+</p>
+
+1. Click **Install SideDock** to download `SideDock-Setup-1.0.0.exe` from the official v1.0.0 GitHub Release. **The download is direct**, without an Actions page, artifact ZIP or GitHub login.
+2. Scan the downloaded setup file using **Windows Security / Microsoft Defender**.
+3. Verify the installer checksum with PowerShell:
 
    ```powershell
    Get-FileHash ".\SideDock-Setup-1.0.0.exe" -Algorithm SHA256
    ```
 
-   Compare the hash to the **installer SHA-256 shown in that exact GitHub Actions run's summary**. A matching hash shows that the file matches the published build; it is not a malware safety guarantee.
-5. If you trust the verified build, open `SideDock-Setup-1.0.0.exe` and follow setup. **Start SideDock automatically when I sign in to Windows** is selected by default; you can opt out.
+   The expected SHA-256 is **`25c9bf3d04d7dc72ff5a20a4a153b2cd8af4777c24fac93db6e334e0ef73119c`**. A matching hash shows that the file matches the verified release build; it is not a malware safety guarantee.
+4. If you trust the verified build, **open the downloaded EXE and approve the Windows installer**. A download link cannot install software silently. **Start SideDock automatically when I sign in to Windows** is selected by default; you can opt out.
 6. Start SideDock from the Start Menu (or the optional desktop shortcut). Hover near your chosen screen edge to reveal the dock.
 
 No `pip`, Python, Tesseract installation, or administrator account is required for the installer. SideDock installs its Windows runtime and English OCR files together. It stores your notes and clipboard history in `%USERPROFILE%\SideDockData`.
@@ -90,7 +93,7 @@ The verified installer appears in `dist/SideDock-Setup-1.0.0.exe`. It contains t
 | OCR finds no text | Select a readable region with sufficiently large text; try a clearer screenshot or a saved image. |
 | Screenshot region seems offset | Use the latest successful main-branch installer, and report Windows display scaling and monitor arrangement in an issue. |
 | A hotkey conflicts with another app | Change the shortcut preset or disable global shortcuts in Settings. |
-| Installer ZIP contains multiple files | You have an older artifact. Choose **SideDock-Windows-Installer**, not **SideDock-Windows**. |
+| Browser downloads an EXE instead of installing immediately | This is expected. Open the download and approve installation in Windows; browsers cannot silently install programs. |
 | A note or screenshot has sensitive information | Remove it from SideDock history. Local saved data is not encrypted. |
 
 ## G. Uninstall
