@@ -1,4 +1,4 @@
-"""Build and verify SideDock's per-user Windows installer.
+"""Build and verify SideDock's fast-start per-user Windows installer.
 
 Run after scripts/build_windows.py on Windows with Inno Setup 6.
 """
@@ -45,10 +45,20 @@ def verify_installer(installer, portable_exe):
             check=True, timeout=180,
         )
         installed = destination / "SideDock.exe"
+        runtime = destination / "_internal"
+        if not (runtime / "ocr" / "tesseract.exe").is_file():
+            raise RuntimeError("Installer smoke test: bundled OCR executable missing")
+        if not (runtime / "ocr" / "tessdata" / "eng.traineddata").is_file():
+            raise RuntimeError("Installer smoke test: English OCR data missing")
         if not installed.is_file():
             raise RuntimeError("Installer smoke test: missing installed executable")
         if hashlib.sha256(installed.read_bytes()).digest() != hashlib.sha256(portable_exe.read_bytes()).digest():
             raise RuntimeError("Installer smoke test: executable differs from portable build")
+        # Launch the actual installed folder without onefile unpacking.
+        import time
+        started = time.perf_counter()
+        subprocess.run([str(installed), "--smoke-test"], check=True, timeout=30)
+        print(f"Installed SideDock startup smoke: {time.perf_counter() - started:.2f}s")
         key_path = r"Software\Microsoft\Windows\CurrentVersion\Run"
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path) as key:
             command, _ = winreg.QueryValueEx(key, "SideDock")
@@ -76,9 +86,10 @@ def verify_installer(installer, portable_exe):
 def main():
     if sys.platform != "win32":
         raise SystemExit("Build the installer on Windows.")
-    portable = ROOT / "dist" / "SideDock.exe"
+    portable = ROOT / "dist" / "SideDock" / "SideDock.exe"
     resources = (
         portable,
+        portable.parent / "_internal" / "ocr" / "tesseract.exe",
         ROOT / "build" / "release" / "SideDock.ico",
         ROOT / "installer" / "SideDock.iss",
         ROOT / "LICENSE",

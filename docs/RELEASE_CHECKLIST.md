@@ -22,6 +22,8 @@ Use a non-sensitive test profile and disposable files. Start with the candidate 
 | Launch portable EXE | Dock appears at chosen screen edge; no Python required | Pending |
 | Install SideDock setup | Per-user install, Start Menu shortcut and optional desktop shortcut, without elevation; autostart checked by default | Pending |
 | Startup opt-out | Uncheck Start with Windows on install; verify no Run entry; tray toggle works afterward | Pending |
+| Fast startup | Installed onedir app loads with no onefile extraction; startup smoke measures duration | Pending |
+| Sign-in and restart | Sign out/in and reboot; app appears without opening shortcut, noting Windows may stagger startup apps | Pending |
 | Uninstall SideDock setup | Program removed; saved SideDockData history/notes remain intact | Pending |
 | Second instance | No second clipboard watcher/dock | Pending |
 | Hover and collapse | No flicker while stationary at edge | Pending |

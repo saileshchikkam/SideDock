@@ -16,6 +16,7 @@ SideDock hides at the edge of your screen until you need it. Collect a screensho
 - **Quick-Paste** — access up to three recent items from a keyboard shortcut or the eight-second popup.
 - **Favorites** — star important items to preserve them when clearing unstarred history.
 - **Local controls** — pause capture, switch shortcut presets, and manage startup from the notification-area icon.
+- **Fast sign-in launch** — dependencies are installed once, not unpacked by a large single-file EXE on every Windows login.
 - **Appearance** — improved contrast in the Dark and near-black Deep Dark palettes, plus Windows accent-aware mode.
 - **Notes** — save handwritten text and snippets locally without changing the system clipboard.
 - **Screen text** — on-device English OCR from a screenshot region or saved image, included in the Windows release without a separate setup.
@@ -25,12 +26,12 @@ SideDock hides at the edge of your screen until you need it. Collect a screensho
 
 1. Open the [Windows build workflow](https://github.com/saileshchikkam/SideDock/actions/workflows/windows-build.yml), then select the latest **successful run on `release/v1.0-hardening`**.
 2. Download the **SideDock-Windows-Installer** artifact from the run's *Artifacts* section (GitHub sign-in may be required; artifacts expire).
-3. Extract the GitHub artifact ZIP. It now contains **only `SideDock-Setup-1.0.0.exe`**; run that installer. GitHub Actions always wraps artifacts in a ZIP even when they contain a single EXE.
+3. Extract the GitHub artifact ZIP. It now contains **only `SideDock-Setup-1.0.0.exe`**; run that installer. GitHub Actions always wraps artifacts in a ZIP even when they contain a single EXE. The installer extracts the application files once into LocalAppData.
 4. Launch SideDock and hover over the right screen edge.
 
 Neither installer nor portable executable requires Python on the destination PC. Both are currently unsigned and may trigger a Windows SmartScreen warning. Scan the file and verify its checksum before deciding whether to trust it.
 
-**Installer behavior:** installs per-user without administrator permission, creates a Start Menu shortcut and an optional desktop shortcut. **Start SideDock automatically when I sign in to Windows** is selected by default during setup; you can uncheck it or change it later from the system tray. The startup permission applies to the current Windows user and does not request administrator rights. A normal uninstaller is registered. Uninstall preserves `%USERPROFILE%\SideDockData` (including history, notes and copied files), which must be managed separately. Before upgrading from the portable build, quit it and disable **Start with Windows** to avoid a stale startup entry.
+**Installer behavior:** installs per-user without administrator permission, creates a Start Menu shortcut and an optional desktop shortcut. **Start SideDock automatically when I sign in to Windows** is selected by default during setup; you can uncheck it or change it later from the system tray. The installed EXE now uses an on-disk `_internal` runtime to reduce launch delay. The startup permission applies to the current Windows user and does not request administrator rights. A normal uninstaller is registered. Uninstall preserves `%USERPROFILE%\SideDockData` (including history, notes and copied files), which must be managed separately. Before upgrading from the portable build, quit it and disable **Start with Windows** to avoid a stale startup entry.
 
 Verify the SHA-256 digest in PowerShell:
 
@@ -99,7 +100,7 @@ python scripts/build_windows.py
 python scripts/build_installer.py  # requires Inno Setup 6
 ```
 
-Build on Windows with Python 3.12 and Inno Setup 6. Outputs: `dist/SideDock.exe`, `dist/SideDock-Setup-1.0.0.exe` and `dist/SHA256SUMS.txt` (checksums for both binaries). CI performs a silent install with autostart enabled, verifies the installed EXE matches the portable build, checks the startup registry entry, and tests uninstall removes that entry. **The downloadable GitHub Actions artifact contains one installer EXE only.** For a truly direct EXE download (without a GitHub artifact ZIP), the installer must be attached to an approved GitHub Release. Stable publication remains gated on native Windows testing.
+Build on Windows with Python 3.12 and Inno Setup 6. Outputs: `dist/SideDock/SideDock.exe` plus its `_internal` runtime, `dist/SideDock-Setup-1.0.0.exe` and `dist/SHA256SUMS.txt` (checksums for both binaries). CI performs a silent install with autostart enabled, verifies the installed EXE matches the portable build, checks the startup registry entry, and tests uninstall removes that entry. **The downloadable GitHub Actions artifact contains one installer EXE only.** For a truly direct EXE download (without a GitHub artifact ZIP), the installer must be attached to an approved GitHub Release. **Windows controls the order and timing of startup apps.** SideDock can start automatically after sign-in without a manual double-click, but no app can guarantee zero delay or start before sign-in. Stable publication remains gated on native Windows testing.
 
 ## Release information
 

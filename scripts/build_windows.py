@@ -1,4 +1,7 @@
-"""Build and smoke-test the portable SideDock Windows executable."""
+"""Build and smoke-test the fast-start installed SideDock application folder.
+
+Using onedir avoids unpacking a huge Qt + OCR bundle at every Windows login.
+"""
 import os
 import subprocess
 import sys
@@ -63,15 +66,23 @@ def main():
         raise RuntimeError("English OCR language model is missing")
     subprocess.run([
         sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean",
-        "--onefile", "--noconsole", "--name", "SideDock",
+        "--onedir", "--contents-directory", "_internal", "--noconsole", "--name", "SideDock",
         "--icon", str(icon_path), "--version-file", str(version_path),
         "--add-data", f"{ocr_root};ocr",
         "--paths", str(ROOT), "--specpath", str(output),
         "--workpath", str(output / "work"), "--distpath", str(ROOT / "dist"),
         str(ROOT / "sidedock" / "__main__.py"),
     ], cwd=ROOT, check=True)
-    exe = ROOT / "dist" / "SideDock.exe"
+    exe = ROOT / "dist" / "SideDock" / "SideDock.exe"
+    internal = exe.parent / "_internal"
+    if not (internal / "ocr" / "tesseract.exe").is_file():
+        raise RuntimeError("Offline OCR runtime is missing from fast-start build")
+    if not (internal / "ocr" / "tessdata" / "eng.traineddata").is_file():
+        raise RuntimeError("English OCR model is missing from fast-start build")
+    import time
+    started = time.perf_counter()
     subprocess.run([str(exe), "--smoke-test"], cwd=ROOT, check=True, timeout=120)
+    print(f"Packaged Qt startup smoke: {time.perf_counter() - started:.2f}s")
     subprocess.run([sys.executable, "scripts/create_ocr_fixture.py"], cwd=ROOT, check=True)
     diagnostic = ROOT / "build" / "ocr-smoke-diagnostic.txt"
     diagnostic.unlink(missing_ok=True)

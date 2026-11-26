@@ -28,6 +28,16 @@ class SingleInstallerTests(unittest.TestCase):
         self.assertIn('"/TASKS=autostart"', source)
         self.assertIn('winreg.QueryValueEx(key, "SideDock")', source)
         self.assertIn("uninstaller left an obsolete startup entry", source)
+        self.assertIn('runtime / "ocr" / "tesseract.exe"', source)
+
+    def test_fast_start_runtime_is_installed_not_extracted_on_every_login(self):
+        builder = (ROOT / "scripts/build_windows.py").read_text(encoding="utf-8")
+        installer = (ROOT / "installer/SideDock.iss").read_text(encoding="utf-8")
+        self.assertIn('"--onedir"', builder)
+        self.assertIn('"--contents-directory", "_internal"', builder)
+        self.assertNotIn('"--onefile"', builder)
+        self.assertIn(r'Source: "..\dist\SideDock\*"', installer)
+        self.assertIn("recursesubdirs createallsubdirs", installer)
 
 
 if __name__ == "__main__":

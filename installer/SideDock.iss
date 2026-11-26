@@ -36,13 +36,14 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Name: "autostart"; Description: "Start SideDock automatically when I sign in to Windows"; GroupDescription: "Windows startup:"
 
 [Registry]
-; Per-user opt-in during setup (checked by default). No administrator access.
+; Per-user sign-in startup checked by default (not before Windows login).
+; On-disk PyInstaller runtime avoids re-extracting Qt and OCR at every logon.
 ; The app tray can disable or re-enable the same HKCU Run value at any time.
 ; Do not use uninsdeletevalue: the uninstall code checks the full path first.
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "SideDock"; ValueData: """{app}\SideDock.exe"""; Tasks: autostart
 
 [Files]
-Source: "..\dist\SideDock.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\dist\SideDock\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\THIRD_PARTY_NOTICES.md"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]

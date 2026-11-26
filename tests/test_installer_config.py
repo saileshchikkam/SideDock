@@ -22,6 +22,8 @@ class InstallerContractTests(unittest.TestCase):
         self.assertIn('unins000.exe', source)
         self.assertIn('checksum_line(installer)', source)
         self.assertIn('verify_installer(installer, portable)', source)
+        self.assertIn('portable = ROOT / "dist" / "SideDock" / "SideDock.exe"', source)
+        self.assertIn('subprocess.run([str(installed), "--smoke-test"]', source)
 
 
 if __name__ == "__main__":
