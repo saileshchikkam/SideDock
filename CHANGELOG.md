@@ -26,10 +26,16 @@
 - Scrollable Settings panel, data directory overview and manual cleanup of safely identified unused copies.
 - Removed LOCAL from the dock header; PAUSED remains visible when capture is disabled.
 
+### Documentation & onboarding
+- Public-facing README with features, use cases, keyboard shortcuts, install/build prerequisites, diagrams, privacy guidance and developer credits.
+- Illustrated SmartScreen setup walkthrough; authentic final-installer screenshots still pending.
+- Installer SHA-256 published to CI run summary to help users verify exact downloads.
+
 ### Distribution
 - New per-user Inno Setup Windows installer with normal uninstall, Start Menu shortcut, optional desktop shortcut, MIT license and no admin requirement.
 - Automated install → exact-binary verification → uninstall smoke test. Clipboard data is preserved.
-- Portable Windows executable with version information, icon and SHA-256 checksum.
+- Fast-start PyInstaller onedir Windows application (installed by one setup EXE) with version information, icon and SHA-256 checksum.
+- Start with Windows checkbox is enabled by default for the installing user; Windows may stagger launch after sign-in.
 - Shared per-user startup integration for Python and executable installs.
 - GitHub Actions Windows build and isolated source and binary smoke tests.
 

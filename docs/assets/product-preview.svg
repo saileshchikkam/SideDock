@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="620" viewBox="0 0 1200 620" role="img" aria-labelledby="title desc">
+<title id="title">SideDock concept preview</title>
+<desc id="desc">A minimal SideDock interface concept showing saved notes, screenshot OCR, and favorites alongside a description of the product.</desc>
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#101114"/><stop offset="1" stop-color="#090a0b"/></linearGradient>
+<linearGradient id="line" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#555861"/><stop offset="1" stop-color="#1c1d22"/></linearGradient>
+<filter id="shadow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="16"/></filter>
+</defs>
+<rect width="1200" height="620" rx="26" fill="url(#bg)"/>
+<circle cx="960" cy="308" r="254" fill="#32333e" opacity=".18" filter="url(#shadow)"/>
+<rect x="55" y="55" width="170" height="32" rx="16" fill="#22252a" stroke="#353941"/>
+<circle cx="74" cy="71" r="4" fill="#a3a3ad"/><text x="88" y="76" font-family="Arial, sans-serif" font-size="13" fill="#dddde3">WINDOWS 10 / 11</text>
+<text x="55" y="178" font-family="Arial, sans-serif" font-weight="700" font-size="61" fill="#f8f8f9">Everything you copy.</text>
+<text x="55" y="247" font-family="Arial, sans-serif" font-weight="700" font-size="61" fill="#f8f8f9">One edge away.</text>
+<text x="55" y="302" font-family="Arial, sans-serif" font-size="22" fill="#b8b8c0">A local-first clipboard, notes and OCR</text>
+<text x="55" y="334" font-family="Arial, sans-serif" font-size="22" fill="#b8b8c0">workspace that stays out of your way.</text>
+<rect x="55" y="382" width="445" height="61" rx="14" fill="#1b1c20" stroke="#35363e"/>
+<text x="79" y="421" font-family="Arial, sans-serif" font-size="20" fill="#eeeeee">Clipboard · Notes · Screenshots</text>
+<rect x="55" y="457" width="445" height="61" rx="14" fill="#1b1c20" stroke="#35363e"/>
+<text x="79" y="496" font-family="Arial, sans-serif" font-size="20" fill="#eeeeee">Search · Favorites · Quick-Paste</text>
+<text x="57" y="566" font-family="Arial, sans-serif" font-size="15" fill="#72747c">PRODUCT ILLUSTRATION — NOT AN APP SCREENSHOT</text>
+<rect x="724" y="42" width="412" height="534" rx="23" fill="#17181c" stroke="url(#line)" stroke-width="2"/>
+<rect x="742" y="59" width="376" height="56" rx="11" fill="#222329"/>
+<rect x="756" y="72" width="28" height="28" rx="7" fill="#ececee"/>
+<rect x="763" y="77" width="14" height="18" rx="3" fill="#1b1c20"/>
+<text x="799" y="94" font-family="Arial, sans-serif" font-weight="700" font-size="22" fill="#fafafa">SideDock</text>
+<circle cx="1084" cy="87" r="4" fill="#7d7e88"/>
+<g font-family="Arial, sans-serif" font-size="13" fill="#f1f1f2" text-anchor="middle">
+<rect x="742" y="130" width="117" height="43" rx="10" fill="#303139"/><text x="800" y="156">Screenshot</text>
+<rect x="867" y="130" width="117" height="43" rx="10" fill="#303139"/><text x="925" y="156">Text OCR</text>
+<rect x="991" y="130" width="62" height="43" rx="10" fill="#303139"/><text x="1022" y="156">Clear</text>
+<rect x="1061" y="130" width="57" height="43" rx="10" fill="#303139"/><text x="1089" y="156">Pin</text>
+</g>
+<rect x="742" y="189" width="376" height="46" rx="11" fill="#101114" stroke="#40414a"/>
+<text x="760" y="218" font-family="Arial, sans-serif" font-size="15" fill="#858691">Search your collection...</text>
+<rect x="1010" y="246" width="108" height="33" rx="8" fill="#383941"/>
+<text x="1033" y="267" font-family="Arial, sans-serif" font-size="14" fill="#fafafa">+ Add Note</text>
+<rect x="742" y="292" width="376" height="108" rx="12" fill="#222328" stroke="#40414a"/>
+<text x="760" y="316" font-family="Arial, sans-serif" font-size="13" fill="#b8b8c0">NOTE</text>
+<text x="1086" y="317" font-family="Arial, sans-serif" font-size="20" fill="#dedee4">&#9734;</text>
+<text x="760" y="344" font-family="Arial, sans-serif" font-size="17" fill="#f3f3f4">Meeting checklist</text>
+<text x="760" y="370" font-family="Arial, sans-serif" font-size="14" fill="#b1b1b9">Ideas, snippets and reminders.</text>
+<rect x="742" y="411" width="376" height="108" rx="12" fill="#222328" stroke="#40414a"/>
+<text x="760" y="435" font-family="Arial, sans-serif" font-size="13" fill="#b8b8c0">OCR TEXT</text>
+<text x="1086" y="437" font-family="Arial, sans-serif" font-size="20" fill="#dedee4">&#9734;</text>
+<text x="760" y="467" font-family="Arial, sans-serif" font-size="17" fill="#f3f3f4">Selected screen text</text>
+<text x="760" y="490" font-family="Arial, sans-serif" font-size="14" fill="#b1b1b9">Extracted locally and saved.</text>
+<text x="744" y="549" font-family="Arial, sans-serif" font-size="13" fill="#7d7e89">2 ITEMS</text>
+<text x="1055" y="549" font-family="Arial, sans-serif" font-size="13" fill="#bdbdc5">Settings</text>
+</svg>

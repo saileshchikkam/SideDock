@@ -2,16 +2,16 @@
 
 ## Automated evidence
 
-- [x] 18 Python unit tests passed on the Windows runner (including OCR, storage, theme and installer contract tests).
-- [x] Source Qt smoke test passed.
-- [x] Windows portable executable built successfully.
-- [x] Packaged binary smoke test passed.
-- [x] SHA-256 checksum generated and artifact uploaded.
-- [x] Previous per-user installer passed CI install, exact-binary and uninstall smoke tests.
-- [ ] Updated per-user installer verifies its default startup entry and removes it on uninstall.
-- [ ] New artifact contains only the installer executable.
+- [x] **30/30 Python unit tests passed** on Windows CI, including DPI capture alignment, embedded workspaces, OCR, storage and installer contract tests.
+- [x] Source Qt and offline OCR smoke tests passed.
+- [x] Fast-start PyInstaller **onedir** Windows app built and verified.
+- [x] Installed binary's OCR engine, English language model and Qt startup smoke checks passed.
+- [x] Per-user setup installed successfully with **Start with Windows selected**, registered the expected HKCU Run entry, and removed it on uninstall.
+- [x] SHA-256 checksums generated and the **single-installer** artifact uploaded.
+- [x] Installer startup smoke test on the runner measured **0.39 seconds** (not a full Windows login-time test).
+- [ ] Full native Windows desktop interaction, security and restart-delay acceptance remains required.
 
-Evidence: [Windows Actions run 45642152853](https://github.com/saileshchikkam/SideDock/actions/runs/45642152853), commit `24821d5`. Portable EXE, setup EXE and SHA-256 manifest were uploaded and verified. These automated checks do **not** exercise global hooks or actual interactive Windows desktop behavior.
+Evidence: [Windows Actions run 45841684301](https://github.com/saileshchikkam/SideDock/actions/runs/45841684301), commit `7b521ac`. The artifact includes only one installer EXE, wrapped automatically in a GitHub Actions ZIP. Automated checks do **not** simulate a user's actual complete reboot, foreground hooks or multi-monitor desktop session.
 
 ## Real Windows desktop acceptance
 

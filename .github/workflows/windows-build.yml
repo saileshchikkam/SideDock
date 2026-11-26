@@ -45,6 +45,16 @@ jobs:
         run: python scripts/build_windows.py
       - name: Build and smoke-test per-user installer
         run: python scripts/build_installer.py
+      - name: Publish installer SHA-256 for safe verification
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem -Path dist -Filter "SideDock-Setup-*.exe" | Select-Object -First 1
+          if (-not $installer) { throw 'Installer binary is missing' }
+          $hash = (Get-FileHash -Algorithm SHA256 $installer.FullName).Hash.ToLowerInvariant()
+          "### SideDock installer SHA-256" >> $env:GITHUB_STEP_SUMMARY
+          "File: $($installer.Name)" >> $env:GITHUB_STEP_SUMMARY
+          "SHA-256: $hash" >> $env:GITHUB_STEP_SUMMARY
+          Write-Host ("Installer SHA-256: {0}  {1}" -f $hash, $installer.Name)
       - uses: actions/upload-artifact@v4
         with:
           name: SideDock-Windows-Installer

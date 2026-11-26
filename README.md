@@ -1,113 +1,297 @@
-<p align="center"><img src="docs/brand-mark.svg" width="96" alt="SideDock logo"></p>
+<p align="center">
+  <img src="docs/brand-mark.svg" alt="SideDock mark" width="96" height="96">
+</p>
 
 <h1 align="center">SideDock</h1>
+
 <p align="center"><strong>Everything you copy. One edge away.</strong></p>
-<p align="center">A local-first clipboard and drag-and-drop dock for Windows 10/11.</p>
+<p align="center">A quiet, local-first workspace for clipboard history, screenshots, text extraction, notes, files and instant reuse on Windows.</p>
 
-> **Release candidate:** the automated Windows build, unit tests and isolated smoke tests passed. Interactive testing on real Windows desktops is pending. There is no stable public release yet.
+<p align="center">
+  <a href="https://github.com/saileshchikkam/SideDock/actions/workflows/windows-build.yml"><img src="https://img.shields.io/github/actions/workflow/status/saileshchikkam/SideDock/windows-build.yml?branch=release%2Fv1.0-hardening&style=flat-square&label=Windows%20build" alt="Windows build status"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-d4d4d8?style=flat-square&labelColor=171717" alt="MIT license"></a>
+  <img src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-f4f4f5?style=flat-square&labelColor=171717" alt="Windows 10 and 11">
+  <img src="https://img.shields.io/badge/Python-3.10%2B-d4d4d8?style=flat-square&labelColor=171717" alt="Python 3.10 or newer for source development">
+  <img src="https://img.shields.io/badge/privacy-local--first-f4f4f5?style=flat-square&labelColor=171717" alt="Local-first">
+</p>
 
-## A workspace between apps
+<p align="center">
+  <a href="#install-sidedock">Install SideDock</a> ·
+  <a href="#features-at-a-glance">Explore features</a> ·
+  <a href="#keyboard-shortcuts">Shortcuts</a> ·
+  <a href="docs/INSTALLATION.md">Visual installation guide</a> ·
+  <a href="https://github.com/saileshchikkam/SideDock/issues">Feedback &amp; issues</a>
+</p>
 
-SideDock hides at the edge of your screen until you need it. Collect a screenshot, a code snippet, a URL or a file, then move it into your next application without opening a separate window.
+> [!IMPORTANT]
+> **Current status: v1.0.0 release candidate.** A Windows installer is available from the successful [GitHub Actions builds](https://github.com/saileshchikkam/SideDock/actions/workflows/windows-build.yml). Full Windows 10/11 acceptance and final stable release publication are not yet complete. The executable is **unsigned** and may trigger Microsoft Defender SmartScreen. See [safe installation instructions](docs/INSTALLATION.md).
 
-- **Edge-peek** — a thin, auto-hiding dock with smooth expansion, pinning, resizing and monitor-aware positioning.
-- **Clipboard capture** — searchable text, links, screenshots, images, and local files, with Windows clipboard privacy exclusions respected when supplied by the source application.
-- **Drag and drop** — save items by dragging them onto the dock; drag them out to compatible apps.
-- **Quick-Paste** — access up to three recent items from a keyboard shortcut or the eight-second popup.
-- **Favorites** — star important items to preserve them when clearing unstarred history.
-- **Local controls** — pause capture, switch shortcut presets, and manage startup from the notification-area icon.
-- **Fast sign-in launch** — dependencies are installed once, not unpacked by a large single-file EXE on every Windows login.
-- **Appearance** — improved contrast in the Dark and near-black Deep Dark palettes, plus Windows accent-aware mode.
-- **Notes** — save handwritten text and snippets locally without changing the system clipboard.
-- **Screen text** — on-device English OCR from a screenshot region or saved image, included in the Windows release without a separate setup.
-- **Storage tools** — open the data folder, inspect usage and manually remove only unreferenced SideDock-managed copies.
+<p align="center">
+  <img src="docs/assets/product-preview.svg" width="1100" alt="Illustrated SideDock product concept: edge dock with searchable note and OCR text cards">
+</p>
+<p align="center"><sub>Product illustration based on the current feature set, not a captured screenshot. Real desktop screenshots will be added after release validation.</sub></p>
 
-## Try the Windows release candidate
+---
 
-1. Open the [Windows build workflow](https://github.com/saileshchikkam/SideDock/actions/workflows/windows-build.yml), then select the latest **successful run on `release/v1.0-hardening`**.
-2. Download the **SideDock-Windows-Installer** artifact from the run's *Artifacts* section (GitHub sign-in may be required; artifacts expire).
-3. Extract the GitHub artifact ZIP. It now contains **only `SideDock-Setup-1.0.0.exe`**; run that installer. GitHub Actions always wraps artifacts in a ZIP even when they contain a single EXE. The installer extracts the application files once into LocalAppData.
-4. Launch SideDock and hover over the right screen edge.
+## Navigate
 
-Neither installer nor portable executable requires Python on the destination PC. Both are currently unsigned and may trigger a Windows SmartScreen warning. Scan the file and verify its checksum before deciding whether to trust it.
+| Discover | Start using | Build & contribute |
+| :--- | :--- | :--- |
+| [Why SideDock?](#why-sidedock-exists) | [Windows installation](#install-sidedock) | [Run from source](#developer-quick-start) |
+| [Feature tour](#features-at-a-glance) | [SmartScreen guide](#windows-smartscreen-what-to-expect) | [Tech stack](#how-its-built) |
+| [Who is it for?](#who-its-for) | [Keyboard shortcuts](#keyboard-shortcuts) | [Build your own installer](#build-your-own-windows-release) |
+| [How it fits your day](#a-better-everyday-workflow) | [Privacy & limits](#your-data-stays-on-your-pc) | [Security](SECURITY.md) · [License](LICENSE) |
 
-**Installer behavior:** installs per-user without administrator permission, creates a Start Menu shortcut and an optional desktop shortcut. **Start SideDock automatically when I sign in to Windows** is selected by default during setup; you can uncheck it or change it later from the system tray. The installed EXE now uses an on-disk `_internal` runtime to reduce launch delay. The startup permission applies to the current Windows user and does not request administrator rights. A normal uninstaller is registered. Uninstall preserves `%USERPROFILE%\SideDockData` (including history, notes and copied files), which must be managed separately. Before upgrading from the portable build, quit it and disable **Start with Windows** to avoid a stale startup entry.
+## Why SideDock exists
 
-Verify the SHA-256 digest in PowerShell:
+Think about the number of times you **copy something, switch apps, find it again, open File Explorer, take a screenshot or retype a note** in a single day.
 
-```powershell
-Get-FileHash .\SideDock.exe -Algorithm SHA256
-Get-Content .\SHA256SUMS.txt
+Windows already offers a clipboard, File Explorer and Snipping Tool. SideDock **doesn't replace Windows**. It brings the small pieces of work you repeatedly move between applications into **one reachable panel at the edge of your screen**.
+
+**Less searching. Less switching. Less retyping. More momentum.**
+
+| The usual workflow | With SideDock |
+| --- | --- |
+| Copy a code snippet, then lose it under the next copy | Keep recent snippets in searchable cards and favorite important ones |
+| Switch back and forth to move several copied items | Open Quick-Paste and reuse the recent slots |
+| Type a short reminder into a separate note app | Add and save a note directly inside the dock |
+| Screenshot some text, then retype it manually | Select a screen region and extract editable text locally |
+| Dig through folders to attach the same file again | Keep a saved file card and drag it to a compatible destination |
+| Leave a big clipboard manager window open | Let the dock auto-hide to a slim screen-edge strip |
+
+## Features at a glance
+
+| Feature | What it does |
+| --- | --- |
+| **Auto-hiding edge dock** | Hides along the left or right screen edge, expands on hover, and can be pinned open. Supports dragging and resizing. |
+| **Universal clipboard capture** | Records supported text, URLs, screenshots, images and copied files/folders into cards. |
+| **One-click reuse** | Click a card to copy or paste into your active application when Windows focus rules permit; drag cards to compatible apps. |
+| **Quick-Paste** | A shortcut opens a small popup for recent clipboard entries, including up to three numbered slots and an eight-second countdown. |
+| **Local text OCR** | Select a screenshot region or use a clipboard/saved image; recognize English text on your PC and review it in the in-dock editor. |
+| **Notes inside SideDock** | Press **+ Add Note**, write inside the dock, save as a card, and search, favorite or reuse it. |
+| **Search & favorites** | Find past items and star the ones you want to keep when clearing ordinary history. |
+| **Screenshot capture** | Launch Windows screen snipping from the **Screenshot** toolbar action; saved screenshots can appear in SideDock. |
+| **Dark / Deep Dark / Windows themes** | Switch between restrained color palettes with increased legibility in dark modes. |
+| **Drag-and-drop both ways** | Move files, images and text into SideDock and drag saved cards out to compatible targets. |
+| **Notification-area controls** | Pause clipboard capture, select shortcut presets, change Start with Windows, and quit. |
+| **Local storage tools** | Inspect stored usage, open your data folder and manually clean unused managed copies after confirmation. |
+
+<details>
+<summary><strong>How does screen-text extraction work?</strong></summary>
+
+1. Select **Text OCR** in the dock.
+2. Choose **Select Screen Region**, **Use Clipboard Image** or **Use Latest Saved Image**.
+3. Drag over the text you want in SideDock's own pixel-aligned screen selector.
+4. The bundled offline **Tesseract OCR** engine reads the image; the result opens **inside SideDock** for correction.
+5. Save the text as a searchable card. The image and recognized text are **not uploaded**.
+
+The **Screenshot** action is different: it launches Windows screen snipping. OCR accuracy varies with image sharpness, font, contrast and language. The bundled model targets **English**.
+
+</details>
+
+<details>
+<summary><strong>What does Quick-Paste do?</strong></summary>
+
+Continue copying several items. Open the Quick-Paste popup with its keyboard shortcut, then choose a visible slot. Standard Ctrl+V still works; SideDock may offer remaining recent items. Hotkey behavior depends on Windows foreground focus and whether global shortcuts are enabled.
+
+</details>
+
+## Who it's for
+
+| Developers & engineers | Students, researchers & designers | Everyday Windows users |
+| --- | --- | --- |
+| Keep error messages, commands, API responses, SQL and code snippets handy | Collect excerpts, screenshots, class notes and temporary references | Save links, addresses, reminders, snippets and frequently shared files |
+| Move text between IDEs, terminals, browser tabs and documentation | Turn screenshots containing English text into editable notes | Reuse copied content without hunting for the original |
+| Quickly paste recent items without opening a large separate workspace | Search the collection while writing reports or working across sources | Keep important items starred and out of the way until needed |
+
+### A better everyday workflow
+
+```text
+Copy an item → SideDock captures it locally → Find, star or pin its card
+                                  ↓
+                    Click, drag or Quick-Paste to reuse it
+
+Screenshot → Text OCR → Select exact region → Review text in SideDock → Save
+Idea or reminder → + Add Note → Write inside SideDock → Save a searchable card
 ```
 
-The CI build prints both SHA-256 hashes to its logs. The artifact contains only the installer; the portable EXE and checksum manifest remain CI build outputs but are not bundled in the download. Compare the installer hash with the build log before running it.
+SideDock works **alongside**, not instead of, standard Windows tools. Apps that restrict clipboard access or drag-and-drop behavior may have additional limitations.
 
-### Install from source
+## Install SideDock
 
-Requires Windows and Python 3.10+; Git must be available for the Git URL installation.
+### Option A — Windows installer (recommended)
+
+**All most people need:** Windows 10 or 11 (64-bit). **No Python, pip, Git, coding tools or separate OCR installation required.**
+
+1. Open the **[Windows installer builds](https://github.com/saileshchikkam/SideDock/actions/workflows/windows-build.yml)**.
+2. Choose the latest successful run on the `release/v1.0-hardening` branch.
+3. In **Artifacts**, download **SideDock-Windows-Installer**, then extract the ZIP. GitHub wraps artifacts in a ZIP even when they contain a single file.
+4. Run `SideDock-Setup-1.0.0.exe`. It installs SideDock for your Windows user with Start Menu access and an optional desktop shortcut.
+5. **Start SideDock when I sign in to Windows** is selected by default. You can uncheck this during setup or toggle it later from SideDock's tray menu.
+6. Hover at the configured screen edge to open your dock.
+
+**[Read the complete illustrated installation walkthrough →](docs/INSTALLATION.md)**
+
+> The installer is currently **unsigned**. On some Windows PCs you may see a SmartScreen warning. Do not disable Windows security; verify where the installer came from and check its hash before deciding whether to trust it.
+
+### Windows SmartScreen: what to expect
+
+<p align="center"><img src="docs/assets/smartscreen-guide.svg" width="1080" alt="Illustrated guide to the More info and Run anyway controls in an unsigned Windows installer warning"></p>
+<p align="center"><sub>Illustrative guide, not an authentic screenshot. Windows dialogs vary by version and policy.</sub></p>
+
+1. **Check the source.** Download only from this repository's successful build. Scan the installer with Microsoft Defender.
+2. **Verify its SHA-256 fingerprint** against the value shown in that build's job summary:
+
+   ```powershell
+   Get-FileHash ".\SideDock-Setup-1.0.0.exe" -Algorithm SHA256
+   ```
+
+3. If you trust the verified file and Windows displays **More info**, selecting it can reveal the program and publisher details.
+4. **Run anyway** may then be available on some PCs. Choose it only when you trust the installer. If security policy blocks it or Defender detects malware, do not force or disable the protection.
+
+**[Windows security troubleshooting and full walkthrough →](docs/INSTALLATION.md)** · [Microsoft SmartScreen documentation](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/smartscreen-reputation)
+
+### Option B — From source (developers)
+
+**Prerequisites:** Windows 10/11; [Git](https://git-scm.com/downloads); [Python 3.10+](https://www.python.org/downloads/windows/) and pip. Python 3.12 is the version tested in Windows CI.
+
+In **PowerShell**:
 
 ```powershell
-python -m pip install "git+https://github.com/saileshchikkam/SideDock.git@release/v1.0-hardening"
-python -m sidedock
+git clone https://github.com/saileshchikkam/SideDock.git
+cd SideDock
+git switch release/v1.0-hardening
+
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -e .
+.\.venv\Scripts\python.exe -m sidedock
 ```
 
-To stop SideDock, choose **Quit SideDock** from its notification-area menu. To disable automatic startup, turn off **Start with Windows** before removing the executable.
+The editable install brings in **PySide6** and **keyboard** via `pyproject.toml`. Replace `py -3.12` with your installed supported Python version if needed. In a **source-only** run, offline OCR may also need a local Tesseract executable and English recognition data; the Windows installer already bundles these.
 
-## Notes, screenshot and text extraction
-
-**Add Note** appears below search. It opens an editor **inside the existing SideDock panel**, not in a separate dialog. Save creates a searchable, pinnable local note card; cancel discards the unsaved draft. Manual notes do not trigger Quick-Paste.
-
-**Screenshot** continues to use Windows screen snipping. **Text OCR** now opens a **SideDock-internal OCR workspace** with three options: Select Screen Region (using SideDock's pixel-aligned, unzoomed selection overlay; the highlighted preview exactly matches the cropped screenshot at 100%–200% display scaling), Use Clipboard Image or Use Latest Saved Image. The OCR result opens in SideDock's inline text editor for correction before saving a card. The Windows installer and portable EXE package the English Tesseract OCR engine and its language data to avoid a separate OCR installation. Source-only Python installations may still need Tesseract installed locally. No screenshots or text are uploaded. OCR recognition can make mistakes; verify the output before using it.
+For troubleshooting, startup options and complete build prerequisites, see [Installation](docs/INSTALLATION.md).
 
 ## Keyboard shortcuts
 
-| Action | Classic | Alternative |
+| Action | Classic (default) | Alternative |
 | --- | --- | --- |
-| Paste normally (show remaining recent items when available) | Ctrl+V | Ctrl+V |
-| Open Quick-Paste | Ctrl+Shift+V | Ctrl+Alt+V |
-| Select a visible slot | Ctrl+Alt+1/2/3 | Ctrl+Shift+Alt+1/2/3 |
+| Normal paste; SideDock may offer remaining slots | `Ctrl + V` | `Ctrl + V` |
+| Open Quick-Paste | **`Ctrl + Shift + V`** | **`Ctrl + Alt + V`** |
+| Select recent slot 1/2/3 when visible | `Ctrl + Alt + 1/2/3` | `Ctrl + Shift + Alt + 1/2/3` |
 
-Change the preset or disable the global shortcuts from the tray menu. Numbered shortcuts are registered only while their slots are visible. If Windows denies focus restoration, the selected item stays on the clipboard rather than sending an unchecked paste.
+Change the preset, or turn off the global hooks if they conflict with your apps, in **Settings** or the **system tray menu**. Numbered slot shortcuts are only enabled while their relevant popup slots are available.
 
-## Privacy and data
+## Your data stays on your PC
 
-SideDock stores local history in `%USERPROFILE%\SideDockData`. There is no account or backend service in the application. The history JSON and saved copies **are not encrypted**. Only clipboard applications that supply the Windows exclusion format can be automatically excluded; do not assume every password or sensitive value is excluded.
+SideDock is **local-first**: there is no account, remote clipboard database or OCR cloud upload in the application.
 
-- Pause automatic clipboard capture in Settings or the tray. Manual drops and deliberately started OCR remain available.
-- Settings provides the same shortcut enable switch and presets as the tray. It also shows storage usage and offers manual cleanup of unreferenced copies.
-- Clear removes unstarred saved items and their managed copies; this is not an undoable operation.
-- Original source files are not removed by Clear. Folders are referenced rather than copied.
-- Existing history is preserved when capture is paused or when storage limits change.
+**Saved data folder:** `%USERPROFILE%\SideDockData`
 
-| Limit for new imports | Value |
+| Safety behavior | Current implementation |
 | --- | --- |
-| History items | 500 |
-| Text item | 256 KiB |
-| File or image | 50 MiB |
-| Managed file copies | 500 MiB |
+| Local-only history | Text cards, notes and stored copies are saved on your PC |
+| Auto capture control | Pause/resume automatic clipboard monitoring in Settings or the tray |
+| Bounded storage | Up to **500** history items, **256 KiB** per text entry, **50 MiB** per new file/image, **500 MiB** managed copies |
+| Safer persistence | Atomic history writes; existing history is not silently evicted when full |
+| Cleanup | Confirm before removing unused managed file copies; original source files are not deleted by Clear |
+| Foreground paste | Attempts to preserve the intended target; may leave content copied rather than paste into the wrong window |
+| Single instance | Uses a local lock to prevent multiple concurrent SideDock watchers |
 
-If a limit is reached, new imports are skipped. Remove items to make space.
+> [!WARNING]
+> **Clipboard history is not encrypted.** Apps that do not mark copied content as sensitive can still have it recorded. Avoid copying credentials, private tokens or confidential data while capture is active. Review [Security & privacy](SECURITY.md) before using SideDock with sensitive work.
 
-## Development and building
+Uninstalling SideDock intentionally **preserves** the SideDockData folder so your notes/history are not silently lost. Delete it separately only if you want to permanently clear saved local content.
+
+## How it's built
+
+SideDock is a **native Windows desktop application**, not a browser-based JAMstack website.
+
+| Area | Technology |
+| --- | --- |
+| App and business logic | **Python 3.10+** |
+| Desktop interface | **PySide6 (Qt for Python)** |
+| Windows integration | Windows clipboard APIs, tray integration, foreground-window handling and per-user startup registration |
+| Shortcuts | `keyboard` and Windows key hooks |
+| Image-to-text | **Tesseract OCR**, bundled offline in Windows installer builds |
+| App packaging | **PyInstaller** with an installed, fast-start `onedir` runtime |
+| Installer | **Inno Setup 6**, per-user install and uninstall |
+| Automated checks | **GitHub Actions**, Python unit tests and packaged Windows smoke tests |
+| License | **MIT**, with separate third-party notices for bundled OCR components |
+
+**AI-assisted development:** SideDock's creator credits **Gemini 4 Hydrogen** and **OpenAI GPT-6 (ChatGPT)** as development collaborators. The shipped app runs on Python/Qt and does **not** require either AI service to function. This is a software-development credit, **not** a claim that the Windows app uses JAMstack or a Hydrogen web framework.
+
+### Build your own Windows release
+
+Building an installer requires additional tools beyond the everyday installation: **Python 3.12, PyInstaller, Inno Setup 6, Tesseract OCR and its English trained data**.
 
 ```powershell
-git clone -b release/v1.0-hardening https://github.com/saileshchikkam/SideDock.git
-cd SideDock
-python -m pip install -e . -r requirements-build.txt
-python -m unittest discover -s tests -v
-python -m sidedock --smoke-test
-python scripts/build_windows.py
-python scripts/build_installer.py  # requires Inno Setup 6
+# After cloning the repository and creating the .venv shown above:
+.\.venv\Scripts\python.exe -m pip install -e . -r requirements-build.txt
+$env:SIDEDOCK_OCR_DIR = "C:\Program Files\Tesseract-OCR"
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+.\.venv\Scripts\python.exe scripts/build_windows.py
+.\.venv\Scripts\python.exe scripts/build_installer.py
 ```
 
-Build on Windows with Python 3.12 and Inno Setup 6. Outputs: `dist/SideDock/SideDock.exe` plus its `_internal` runtime, `dist/SideDock-Setup-1.0.0.exe` and `dist/SHA256SUMS.txt` (checksums for both binaries). CI performs a silent install with autostart enabled, verifies the installed EXE matches the portable build, checks the startup registry entry, and tests uninstall removes that entry. **The downloadable GitHub Actions artifact contains one installer EXE only.** For a truly direct EXE download (without a GitHub artifact ZIP), the installer must be attached to an approved GitHub Release. **Windows controls the order and timing of startup apps.** SideDock can start automatically after sign-in without a manual double-click, but no app can guarantee zero delay or start before sign-in. Stable publication remains gated on native Windows testing.
+Build output: `dist/SideDock-Setup-1.0.0.exe`, a fast-start installed app under `dist/SideDock/`, and `dist/SHA256SUMS.txt`. GitHub Actions uploads **one installer EXE per new build artifact**. The source build is not intended for macOS or Linux.
 
-## Release information
+## FAQ
 
-- [Changelog](CHANGELOG.md)
-- [Windows acceptance and release checklist](docs/RELEASE_CHECKLIST.md)
-- [Security and privacy notes](SECURITY.md)
+<details><summary><strong>Does SideDock replace the Windows clipboard?</strong></summary>
 
-## License
+No. It extends your workflow with a searchable visual history, notes, OCR, favorites and reusable cards while preserving normal copy and paste.
 
-SideDock is released under the [MIT License](LICENSE). You may use, modify and redistribute it, including commercially, while preserving the copyright and license notice. The software is provided without warranty.
+</details>
+
+<details><summary><strong>Does it run when Windows starts?</strong></summary>
+
+Yes, if **Start with Windows** stays selected during installation. It registers for the signed-in user. Windows may stagger startup apps after login, so it may not appear immediately. Change this in the tray if you prefer manual startup.
+
+</details>
+
+<details><summary><strong>Why did Microsoft Defender SmartScreen warn me?</strong></summary>
+
+The beta installer is **unsigned** and does not yet have established publisher reputation. Verify the file's source and checksum, scan it, and follow your organization's security policy. Do not disable Defender or override malware detections. See the [visual installation guide](docs/INSTALLATION.md).
+
+</details>
+
+<details><summary><strong>Why is there a ZIP if I only want one EXE?</strong></summary>
+
+GitHub Actions wraps artifacts in ZIP files. The current **SideDock-Windows-Installer** artifact contains one installer EXE. A future approved GitHub Release will expose that EXE as a directly downloadable release asset.
+
+</details>
+
+<details><summary><strong>Can I use SideDock offline? Is my clipboard uploaded?</strong></summary>
+
+Yes, core features including local OCR work offline. The application has no backend or account. Your clipboard content and OCR images are not uploaded by SideDock.
+
+</details>
+
+<details><summary><strong>Is SideDock available for macOS, Linux or Android?</strong></summary>
+
+Not in this release. The app is designed for Windows 10/11 and uses Windows-specific APIs.
+
+</details>
+
+## Roadmap & release status
+
+- **Implemented:** edge dock, capture and paste, favorites, Quick-Paste, embedded notes, in-app region OCR, dark themes, local storage tools, Windows installer and startup registration.
+- **Release verification:** final native Windows acceptance, security review, public release asset/checksum verification.
+- **Future possibilities (not shipped):** code signing, built-in update checks, more OCR languages and accessibility refinement.
+
+Follow [the changelog](CHANGELOG.md), [release checklist](docs/RELEASE_CHECKLIST.md) and [open issues](https://github.com/saileshchikkam/SideDock/issues). Please avoid posting sensitive copied content or private screenshots in public issues.
+
+## Maintainer & credits
+
+Created and maintained by **[Sailesh Chikkam](https://github.com/saileshchikkam)**.
+
+- **License:** [MIT](LICENSE).
+- **Bundled OCR attribution:** [Third-party notices](THIRD_PARTY_NOTICES.md) · [Tesseract OCR](https://github.com/tesseract-ocr/tesseract).
+- **Optional GitHub profile styling:** [GitSkins](https://www.gitskins.com/) — a separate third-party GitHub README/profile design resource, **not** a SideDock feature or dependency.
+- **Source, feedback & collaboration:** [GitHub repository](https://github.com/saileshchikkam/SideDock) · [Issues](https://github.com/saileshchikkam/SideDock/issues) · [Pull requests](https://github.com/saileshchikkam/SideDock/pulls).
+
+---
+
+<p align="center"><strong>Keep your screen clear. Keep your workflow moving.</strong></p>
+<p align="center"><a href="#sidedock">Back to top ↑</a></p>

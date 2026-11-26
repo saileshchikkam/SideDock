@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="500" viewBox="0 0 1200 500" role="img" aria-labelledby="title desc">
+<title id="title">SideDock SmartScreen installation guide illustration</title>
+<desc id="desc">Two illustrated steps: click More info in a Windows protected your PC warning, then verify the app before choosing Run anyway if the option is available.</desc>
+<rect width="1200" height="500" rx="22" fill="#111217"/>
+<text x="40" y="47" font-family="Arial, sans-serif" font-size="16" font-weight="700" fill="#d5d6dd">WINDOWS SMARTSCREEN · EXAMPLE WALKTHROUGH</text>
+<text x="40" y="74" font-family="Arial, sans-serif" font-size="13" fill="#898b96">Illustration only, not an actual Windows screenshot. Your dialog, colors and options may differ.</text>
+<rect x="40" y="104" width="535" height="287" rx="14" fill="#125d32" stroke="#2eaf64" stroke-width="2"/>
+<rect x="40" y="104" width="535" height="43" rx="14" fill="#0f6f39"/>
+<text x="61" y="132" font-family="Arial, sans-serif" font-size="17" fill="#ffffff">01  Windows protected your PC</text>
+<text x="67" y="184" font-family="Arial, sans-serif" font-size="16" fill="#f7fdf9">Microsoft Defender SmartScreen</text>
+<text x="67" y="212" font-family="Arial, sans-serif" font-size="14" fill="#ecf8ee">An unrecognized app was prevented from starting.</text>
+<rect x="61" y="242" width="135" height="34" rx="5" fill="#d6f0df"/>
+<text x="87" y="264" font-family="Arial, sans-serif" font-weight="700" font-size="16" fill="#0d582d">More info</text>
+<text x="62" y="313" font-family="Arial, sans-serif" font-size="13" fill="#daefdf">First, verify where you downloaded the file.</text>
+<text x="62" y="337" font-family="Arial, sans-serif" font-size="13" fill="#daefdf">Scan it with Microsoft Defender.</text>
+<path d="M583 237 L611 237 L611 225 L641 248 L611 271 L611 259 L583 259 Z" fill="#b8bac4"/>
+<rect x="649" y="104" width="511" height="287" rx="14" fill="#145d34" stroke="#2eaf64" stroke-width="2"/>
+<rect x="649" y="104" width="511" height="43" rx="14" fill="#0f6f39"/>
+<text x="669" y="132" font-family="Arial, sans-serif" font-size="17" fill="#ffffff">02  Review publisher and source</text>
+<text x="674" y="188" font-family="Arial, sans-serif" font-size="17" fill="#f7fdf9">App: SideDock-Setup-1.0.0.exe</text>
+<text x="674" y="215" font-family="Arial, sans-serif" font-size="14" fill="#e2f4e8">Publisher may show as Unknown (unsigned beta)</text>
+<rect x="677" y="270" width="192" height="43" rx="7" fill="#e5f6eb"/>
+<text x="713" y="297" font-family="Arial, sans-serif" font-weight="700" font-size="16" fill="#174e2b">Run anyway</text>
+<rect x="883" y="270" width="182" height="43" rx="7" fill="#215a37" stroke="#b4e4c2"/>
+<text x="929" y="297" font-family="Arial, sans-serif" font-size="16" fill="#fff">Don't run</text>
+<text x="677" y="344" font-family="Arial, sans-serif" font-size="12" fill="#daefdf">Continue only if verified and you trust the installer.</text>
+<rect x="40" y="410" width="1120" height="56" rx="10" fill="#22252d" stroke="#40434c"/>
+<text x="62" y="444" font-family="Arial, sans-serif" font-size="16" fill="#f2f2f6">Never disable Windows security to install SideDock. If your organization blocks it, contact your administrator.</text>
+</svg>
