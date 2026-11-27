@@ -1,4 +1,15 @@
-# SideDock v1.0.1 — public Windows release acceptance checklist
+# SideDock Windows release acceptance checklist
+
+## v1.0.2 candidate gates
+
+- [ ] Review the stabilization pull request and its Windows build, source and packaged OCR checks, installer smoke test and SHA-256.
+- [ ] Reproduce the original failure with the reported apps and layouts. Retest the same steps with the candidate on an interactive Windows desktop.
+- [ ] Verify focus stays with the active app during edge reveal after Snap, Alt+Tab and taskbar switching. Exercise left and right edges, multiple monitors, DPI changes and fullscreen.
+- [ ] Upgrade an isolated v1.0.1 installation with sample history, favorites, notes and settings. Verify clipboard and Quick-Paste behavior, startup, single-instance handling and data retention on uninstall.
+- [ ] Complete a long-running desktop soak and review `SideDockData/sidedock.log` for heartbeat gaps, startup/shutdown and native errors.
+- [ ] Publish only after the candidate passes these gates. Keep the v1.0.1 GitHub Release available.
+
+## v1.0.1 public release evidence
 
 ## Automated evidence
 

@@ -10,10 +10,10 @@ import sys
 import threading
 import time
 import uuid
-import logging
 from pathlib import Path
 import keyboard
 from PySide6.QtCore import (
+    QAbstractAnimation,
     QBuffer,
     QByteArray,
     QEasingCurve,
@@ -23,6 +23,7 @@ from PySide6.QtCore import (
     QParallelAnimationGroup,
     QPoint,
     QPropertyAnimation,
+    QRect,
     Qt,
     QTimer,
     QUrl,
@@ -48,6 +49,7 @@ from PySide6.QtWidgets import (
 )
 
 from sidedock.branding import app_icon
+from sidedock.diagnostics import log as diagnostic_log, start_diagnostics
 from sidedock.autostart import is_enabled as autostart_enabled, set_enabled as set_autostart_enabled
 from sidedock.version import __version__
 from sidedock.presentation import card_kind, preview_text
@@ -59,10 +61,11 @@ from sidedock.region_capture import RegionCaptureOverlay
 from sidedock.theme import build_dock_qss, resolve_colors
 from sidedock.widgets import (
     DraggableCard,
-    GWL_EXSTYLE,
     QuickPastePopup,
     SettingsPanel,
-    WS_EX_NOACTIVATE,
+)
+from sidedock.windowing import (
+    edge_available, is_topmost, raise_without_activation, set_no_activate,
 )
 
 user32 = ctypes.windll.user32
@@ -146,6 +149,9 @@ class SideDock(QWidget):
         self._editing = False
         self._ocr_request_id = 0
         self._region_overlay = None
+        self._region_pending = False
+        self._edge_samples = 0
+        self._edge_requires_exit = False
 
         # 1. Local PC storage setup
         self.data_dir = Path.home() / "SideDockData"
@@ -169,6 +175,7 @@ class SideDock(QWidget):
             Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint | Qt.Tool
         )
         self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setAttribute(Qt.WA_ShowWithoutActivating)
         self.setAcceptDrops(True)
         self.setMinimumSize(300, 490)
         self.setMaximumSize(560, 820)
@@ -206,6 +213,9 @@ class SideDock(QWidget):
         self.hide_timer.timeout.connect(self.attempt_collapse)
         self.hover_watch = QTimer(self)
         self.hover_watch.timeout.connect(self.attempt_collapse)
+        self.edge_watch = QTimer(self)
+        self.edge_watch.setInterval(100)
+        self.edge_watch.timeout.connect(self.check_edge_hover)
 
         # 5. Rounded glass container
         self.container = QFrame(self)
@@ -255,7 +265,7 @@ class SideDock(QWidget):
         self.pin_btn.setCursor(Qt.PointingHandCursor)
         self.pin_btn.toggled.connect(self.toggle_pin)
 
-        close_btn = QPushButton("×")
+        close_btn = QPushButton("x")
         close_btn.setObjectName("CloseBtn")
         close_btn.setFixedSize(22, 22)
         close_btn.setCursor(Qt.PointingHandCursor)
@@ -285,7 +295,7 @@ class SideDock(QWidget):
         items_layout.setSpacing(8)
 
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Search your clipboard…")
+        self.search_input.setPlaceholderText("Search your clipboard.")
         self.search_input.setAccessibleName("Search clipboard")
         self.search_input.setClearButtonEnabled(True)
         self.search_input.mousePressEvent = self.on_search_click
@@ -345,14 +355,14 @@ class SideDock(QWidget):
         self.pages.addWidget(self.ocr_workspace)
         layout.addWidget(self.pages)
 
-        # Bottom bar: mirrors resize grip & Settings ⚙ depending on Left/Right edge
+        # Bottom bar: mirrors resize grip & Settings ? depending on Left/Right edge
         self.bottom_bar = QHBoxLayout()
         self.bottom_bar.setContentsMargins(0, 0, 0, 0)
         self.grip = QSizeGrip(self)
         self.grip.setFixedSize(16, 16)
         self.grip.setToolTip("Drag to resize SideDock")
 
-        self.gear_btn = QPushButton("Settings ⚙")
+        self.gear_btn = QPushButton("Settings ?")
         self.gear_btn.setObjectName("GearBtn")
         self.gear_btn.setCursor(Qt.PointingHandCursor)
         self.gear_btn.setToolTip("Themes, monitor position, keyboard shortcuts and privacy")
@@ -389,8 +399,34 @@ class SideDock(QWidget):
         app.screenRemoved.connect(self.on_screen_removed)
         app.screenAdded.connect(self.on_screen_added)
         for monitor in app.screens():
-            monitor.availableGeometryChanged.connect(self.on_monitor_geometry_changed)
+            self.on_screen_added(monitor)
         self.update_monitor_mask()
+        self.health_timer = QTimer(self)
+        self._health_sample = time.monotonic(), time.process_time()
+        self.health_timer.timeout.connect(self.log_heartbeat)
+        self.health_timer.start(60_000)
+        self.log_dock_state("initialized")
+
+    def log_heartbeat(self):
+        previous_wall, previous_cpu = self._health_sample
+        now, cpu = self._health_sample = time.monotonic(), time.process_time()
+        elapsed = now - previous_wall
+        diagnostic_log.info("event loop interval=%.2fs process_cpu=%.2fs", elapsed, cpu - previous_cpu)
+        self.log_dock_state("heartbeat")
+
+    def log_dock_state(self, reason):
+        screen = self.monitor
+        hwnd = int(self.winId())
+        diagnostic_log.info(
+            "dock reason=%s visible=%s topmost=%s expanded=%s geometry=%s "
+            "screen=%s work_area=%s dpi=%s scale=%s clipboard_timer=%s hover_timer=%s edge_timer=%s",
+            reason, self.isVisible(), is_topmost(hwnd), self.is_expanded, self.geometry().getRect(),
+            screen.geometry().getRect() if screen else None,
+            screen.availableGeometry().getRect() if screen else None,
+            screen.logicalDotsPerInch() if screen else None,
+            screen.devicePixelRatio() if screen else None,
+            self.clip_timer.isActive(), self.hover_watch.isActive(), self.edge_watch.isActive(),
+        )
 
     def setup_tray(self):
         self.tray = QSystemTrayIcon(QApplication.instance().windowIcon(), self)
@@ -464,7 +500,7 @@ class SideDock(QWidget):
             self.sync_slot_hotkeys()
         except (ValueError, OSError):
             self.unregister_hotkeys()
-            logging.exception("Unable to register shortcuts")
+            diagnostic_log.error("Unable to register shortcuts")
 
     def sync_slot_hotkeys(self):
         for remove in self._slot_removers:
@@ -479,7 +515,7 @@ class SideDock(QWidget):
             for number in self.quick_popup.slot_map:
                 self._slot_removers.append(keyboard.add_hotkey(f"{self.shortcut_keys()[1]}+{number}", lambda n=number: self.pick_slot_signal.emit(n), suppress=True))
         except (ValueError, OSError):
-            logging.exception("Unable to register popup shortcuts")
+            diagnostic_log.error("Unable to register popup shortcuts")
 
     def set_shortcuts_enabled(self, enabled):
         self.settings["shortcuts_enabled"] = enabled
@@ -504,21 +540,31 @@ class SideDock(QWidget):
 
     def on_screen_added(self, screen):
         screen.availableGeometryChanged.connect(self.on_monitor_geometry_changed)
+        screen.geometryChanged.connect(self.on_monitor_geometry_changed)
+        screen.logicalDotsPerInchChanged.connect(self.on_monitor_geometry_changed)
+        if self.monitor is None or (
+            self.monitor != screen and screen.name() == self.settings.get("monitor")
+        ):
+            self.monitor = screen
+            self.on_monitor_geometry_changed()
 
     def on_screen_removed(self, screen):
         if self.monitor == screen:
-            self.monitor = QGuiApplication.primaryScreen()
-            if self.monitor is not None:
-                self.settings["monitor"] = self.monitor.name()
-                self.on_monitor_geometry_changed()
+            screens = [item for item in QGuiApplication.screens() if item != screen]
+            primary = QGuiApplication.primaryScreen()
+            self.monitor = primary if primary in screens else next(iter(screens), None)
+            self.on_monitor_geometry_changed()
 
     def on_monitor_geometry_changed(self, *_):
         if self.monitor is None:
             return
         self.update_edge_coords()
         self.anim_group.stop()
+        self._edge_samples = 0
         self.move(self.x_shown if self.is_expanded else self.x_hidden, self.y_pos)
+        self.setWindowOpacity(0.98 if self.is_expanded else 0.06)
         self.update_monitor_mask()
+        self.log_dock_state("monitor geometry")
 
     def update_monitor_mask(self):
         if not hasattr(self, "monitor") or self.monitor is None:
@@ -552,17 +598,20 @@ class SideDock(QWidget):
             self.bottom_bar.addWidget(self.gear_btn, 0, Qt.AlignRight | Qt.AlignBottom)
 
     def update_edge_coords(self):
+        if self.monitor is None:
+            return
         screen = self.monitor.availableGeometry()
         min_y = screen.top() + 8
-        max_y = max(min_y, screen.bottom() - self.dock_height - 8)
+        max_y = max(min_y, screen.top() + screen.height() - self.dock_height - 8)
         self.y_pos = max(min_y, min(self.y_pos, max_y))
 
         if self.dock_side == "left":
             self.x_shown = screen.left() + 12
             self.x_hidden = screen.left() - self.dock_width + 6
         else:
-            self.x_shown = screen.right() - self.dock_width - 12
-            self.x_hidden = screen.right() - 6
+            right_edge = screen.left() + screen.width()
+            self.x_shown = right_edge - self.dock_width - 12
+            self.x_hidden = right_edge - 6
 
     def set_dock_side(self, side):
         self.dock_side = side
@@ -644,10 +693,9 @@ class SideDock(QWidget):
         self.move(self.x_shown, self.y_pos)
         self.is_expanded = True
         self.setWindowOpacity(0.98)
-        hwnd = int(self.winId())
-        current = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
+        self.edge_watch.stop()
         self.show()
-        user32.SetWindowLongW(hwnd, GWL_EXSTYLE, current & ~WS_EX_NOACTIVATE)
+        set_no_activate(int(self.winId()), False)
         self.activateWindow()
         self.note_composer.editor.setFocus(Qt.OtherFocusReason)
 
@@ -657,7 +705,7 @@ class SideDock(QWidget):
                 self.ocr_workspace.set_status("History is full. Remove a card before saving.")
                 self.pages.setCurrentIndex(3)
             else:
-                self.history_status.setText("HISTORY FULL — remove an item first")
+                self.history_status.setText("HISTORY FULL - remove an item first")
             return
         self.note_composer.set_content(initial, source)
         self.pages.setCurrentIndex(2)
@@ -669,6 +717,8 @@ class SideDock(QWidget):
         self.restore_no_activate()
         self.pages.setCurrentIndex(0)
         self.refresh_list()
+        if self.is_expanded:
+            self.hover_watch.start(150)
 
     def cancel_note_editor(self):
         self._finish_editing()
@@ -697,7 +747,7 @@ class SideDock(QWidget):
             total = managed_bytes(self.files_dir)
             orphaned = orphaned_managed_copies(self.files_dir, self.saved_items)
             mb = total / (1024 * 1024)
-            self.settings_panel.set_storage_usage(f"{len(self.saved_items)} saved items · {mb:.1f} MiB managed copies · {len(orphaned)} unused copies")
+            self.settings_panel.set_storage_usage(f"{len(self.saved_items)} saved items � {mb:.1f} MiB managed copies � {len(orphaned)} unused copies")
         except OSError:
             self.settings_panel.set_storage_usage("Storage usage unavailable")
 
@@ -741,32 +791,33 @@ class SideDock(QWidget):
                 try:
                     p.unlink(missing_ok=True)
                 except OSError:
-                    logging.exception("Could not delete stored copy")
+                    diagnostic_log.error("Could not delete stored copy")
 
     def showEvent(self, event):
         super().showEvent(event)
         self.restore_no_activate()
         self.apply_theme()
+        if not self.is_expanded:
+            self.edge_watch.start()
         QTimer.singleShot(0, self.sync_list_width)
+        self.log_dock_state("show")
+
+    def hideEvent(self, event):
+        self.edge_watch.stop()
+        self._edge_samples = 0
+        super().hideEvent(event)
+        self.log_dock_state("hide")
 
     def on_search_click(self, event):
         identity = window_identity(user32.GetForegroundWindow())
         if identity and identity[1] != os.getpid():
             self._search_target = identity
-        hwnd = int(self.winId())
-        ex_style = ctypes.windll.user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
-        ctypes.windll.user32.SetWindowLongW(
-            hwnd, GWL_EXSTYLE, ex_style & ~WS_EX_NOACTIVATE
-        )
+        set_no_activate(int(self.winId()), False)
         self.activateWindow()
         QLineEdit.mousePressEvent(self.search_input, event)
 
     def restore_no_activate(self):
-        hwnd = int(self.winId())
-        ex_style = ctypes.windll.user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
-        ctypes.windll.user32.SetWindowLongW(
-            hwnd, GWL_EXSTYLE, ex_style | WS_EX_NOACTIVATE
-        )
+        set_no_activate(int(self.winId()), True)
 
     def on_ctrl_v(self):
         # Windows native Ctrl+V is never suppressed or replaced. Do not
@@ -865,10 +916,12 @@ class SideDock(QWidget):
 
     def start_region_ocr(self):
         self.ocr_workspace.set_status("Drag across the screen to select text. Esc cancels.")
+        self._region_pending = True
         self.collapse(force=True)
         QTimer.singleShot(320, self._show_region_overlay)
 
     def _show_region_overlay(self):
+        self._region_pending = False
         screen = QGuiApplication.screenAt(QCursor.pos()) or self.monitor
         if screen is None:
             self.ocr_workspace.set_status("No active screen found.")
@@ -931,7 +984,7 @@ class SideDock(QWidget):
         png = bytes(encoded)
         self._ocr_request_id += 1
         current = self._ocr_request_id
-        self.ocr_workspace.set_status("Recognizing text locally…")
+        self.ocr_workspace.set_status("Recognizing text locally.")
         def worker():
             try:
                 text = extract_text_from_png(png, executable=engine)
@@ -958,7 +1011,31 @@ class SideDock(QWidget):
             260, lambda: subprocess.Popen(["explorer", "ms-screenclip:"])
         )
 
+    def check_edge_hover(self):
+        if self.monitor is None or self._region_pending or self._region_overlay is not None:
+            self._edge_samples = 0
+            return
+        screen = self.monitor.availableGeometry()
+        pos = QCursor.pos()
+        x = screen.left() if self.dock_side == "left" else self.x_hidden
+        strip = QRect(x, self.y_pos, 6, self.dock_height)
+        if not screen.contains(pos) or not strip.contains(pos):
+            self._edge_samples = 0
+            self._edge_requires_exit = False
+            return
+        if (
+            self._edge_requires_exit or self.anim_group.state() == QAbstractAnimation.State.Running
+            or not edge_available(int(self.winId()), polling=True)
+        ):
+            self._edge_samples = 0
+            return
+        self._edge_samples += 1
+        if self._edge_samples >= 2:
+            self.expand(source="edge polling")
+
     def is_cursor_in_dock_zone(self):
+        if self.monitor is None:
+            return False
         pos = QCursor.pos()
         screen = self.monitor.availableGeometry()
         in_y = self.y_pos <= pos.y() <= self.y_pos + self.dock_height
@@ -970,7 +1047,8 @@ class SideDock(QWidget):
 
     def attempt_collapse(self):
             if (
-                self.is_pinned
+                not self.is_expanded
+                or self.is_pinned
                 or self._editing
                 or self._is_dragging_out
                 or self._is_dragging_dock
@@ -986,12 +1064,17 @@ class SideDock(QWidget):
 
     def enterEvent(self, event):
         self.hide_timer.stop()
-        if not self.is_expanded:
-            self.expand()
+        if (
+            not self.is_expanded and not self._edge_requires_exit
+            and not self._region_pending and self._region_overlay is None
+            and self.anim_group.state() != QAbstractAnimation.State.Running
+            and edge_available(int(self.winId()))
+        ):
+            self.expand(source="window hover")
         super().enterEvent(event)
 
     def leaveEvent(self, event):
-        if not self.is_pinned and not self._editing and not self._is_dragging_out and not self._is_dragging_dock:
+        if self.is_expanded and not self.is_pinned and not self._editing and not self._is_dragging_out and not self._is_dragging_dock:
             self.hide_timer.start(300)
         super().leaveEvent(event)
 
@@ -1024,7 +1107,13 @@ class SideDock(QWidget):
         if not checked and not self.underMouse():
             self.hide_timer.start(300)
 
-    def expand(self):
+    def expand(self, source="dock"):
+        self.edge_watch.stop()
+        self._edge_samples = 0
+        self.hide_timer.stop()
+        if not self.is_expanded:
+            self.restore_no_activate()
+            raise_without_activation(int(self.winId()))
         if self.settings.get("mode") == "windows":
             previous = self.colors
             self.apply_theme()
@@ -1038,11 +1127,17 @@ class SideDock(QWidget):
         self.opacity_anim.setStartValue(self.windowOpacity())
         self.opacity_anim.setEndValue(0.98)
         self.anim_group.start()
+        self.log_dock_state("expand " + source)
 
     def collapse(self, force=False):
         if (self.is_pinned or self._is_dragging_out or self._is_dragging_dock) and not force:
             return
         self.hover_watch.stop()
+        self.hide_timer.stop()
+        self._edge_samples = 0
+        self._edge_requires_exit = force
+        if self.isVisible():
+            self.edge_watch.start()
         self.search_input.clearFocus()
         self._search_target = None
         self.restore_no_activate()
@@ -1053,6 +1148,7 @@ class SideDock(QWidget):
         self.opacity_anim.setStartValue(self.windowOpacity())
         self.opacity_anim.setEndValue(0.06)
         self.anim_group.start()
+        self.log_dock_state("collapse")
 
     def check_clipboard(self):
         seq = ctypes.windll.user32.GetClipboardSequenceNumber()
@@ -1063,12 +1159,17 @@ class SideDock(QWidget):
         if self._ignore_clipboard:
             self._ignore_clipboard = False
             return
-        if ctypes.windll.user32.IsClipboardFormatAvailable(EXCLUDE_CLIPBOARD_FMT):
-            return
-        mime = self.clipboard.mimeData()
         if self._capture_paused:
             return
-        self.safe_process_mime(mime)
+        if ctypes.windll.user32.IsClipboardFormatAvailable(EXCLUDE_CLIPBOARD_FMT):
+            return
+        started = time.monotonic()
+        try:
+            self.safe_process_mime(self.clipboard.mimeData())
+        finally:
+            elapsed = time.monotonic() - started
+            if elapsed >= 0.25:
+                diagnostic_log.warning("slow clipboard capture elapsed=%.2fs", elapsed)
 
     def record_new_item(self, item, rapid=True):
         item.setdefault("pinned", False)
@@ -1086,7 +1187,7 @@ class SideDock(QWidget):
         try:
             self.process_mime(mime, rapid=rapid)
         except (OSError, ValueError):
-            logging.exception("SideDock could not capture an item")
+            diagnostic_log.error("SideDock could not capture an item")
 
     def process_mime(self, mime, rapid=True):
         if mime is None or not can_capture(self.saved_items):
@@ -1177,7 +1278,7 @@ class SideDock(QWidget):
 
         visible = [item for item in pinned + unpinned if self.matches_query(item, query)
                    and (item["type"] not in ("file", "image") or Path(item["path"]).exists())]
-        self.history_status.setText(f"{len(visible)} SHOWN  ·  {len(pinned)} STARRED" if query else f"{len(visible)} ITEMS  ·  {len(pinned)} STARRED")
+        self.history_status.setText(f"{len(visible)} SHOWN  �  {len(pinned)} STARRED" if query else f"{len(visible)} ITEMS  �  {len(pinned)} STARRED")
         for item in visible:
             self.render_item(item)
         if not visible:
@@ -1207,7 +1308,7 @@ class SideDock(QWidget):
             item, self.colors, self.paste_item_now, self.set_drag_out_state
         )
         card.setCursor(Qt.PointingHandCursor)
-        card.setToolTip("Click to copy or paste · Drag to another app")
+        card.setToolTip("Click to copy or paste � Drag to another app")
         body = QVBoxLayout(card)
         body.setContentsMargins(10, 7, 9, 9)
         body.setSpacing(5)
@@ -1228,7 +1329,7 @@ class SideDock(QWidget):
         top.addWidget(copied_badge)
 
         is_fav = item.get("pinned", False)
-        star_btn = QPushButton("★" if is_fav else "☆")
+        star_btn = QPushButton("?" if is_fav else "?")
         star_btn.setFixedSize(24, 24)
         star_btn.setObjectName("CardAction")
         star_btn.setCursor(Qt.PointingHandCursor)
@@ -1240,7 +1341,7 @@ class SideDock(QWidget):
         star_btn.clicked.connect(lambda _, it=item: self.toggle_favorite(it))
         top.addWidget(star_btn)
 
-        remove_btn = QPushButton("×")
+        remove_btn = QPushButton("x")
         remove_btn.setObjectName("CloseBtn")
         remove_btn.setFixedSize(24, 24)
         remove_btn.setCursor(Qt.PointingHandCursor)
@@ -1371,16 +1472,24 @@ def main():
     if not lock.tryLock(0):
         QMessageBox.information(None, "SideDock", "SideDock is already running or its data directory is locked.")
         return
+    finish_diagnostics = start_diagnostics(data_dir, __version__)
+    exit_code = 1
     try:
-        dock = SideDock()
-    except (OSError, ValueError) as exc:
-        QMessageBox.critical(None, "SideDock", str(exc))
+        try:
+            dock = SideDock()
+        except (OSError, ValueError) as exc:
+            diagnostic_log.error("startup failed type=%s", type(exc).__name__)
+            QMessageBox.critical(None, "SideDock", str(exc))
+            return
+        dock.show()
+        exit_code = app.exec()
+    except Exception:
+        sys.excepthook(*sys.exc_info())
+        raise SystemExit(1) from None
+    finally:
+        if finish_diagnostics is not None:
+            finish_diagnostics(exit_code)
         lock.unlock()
-        return
-    dock.show()
-    print("SideDock is running! Hover your screen edge.")
-    exit_code = app.exec()
-    lock.unlock()
     sys.exit(exit_code)
 
 if __name__ == "__main__":
