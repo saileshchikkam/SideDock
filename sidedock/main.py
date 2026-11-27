@@ -265,7 +265,7 @@ class SideDock(QWidget):
         self.pin_btn.setCursor(Qt.PointingHandCursor)
         self.pin_btn.toggled.connect(self.toggle_pin)
 
-        close_btn = QPushButton("x")
+        close_btn = QPushButton("×")
         close_btn.setObjectName("CloseBtn")
         close_btn.setFixedSize(22, 22)
         close_btn.setCursor(Qt.PointingHandCursor)
@@ -295,7 +295,7 @@ class SideDock(QWidget):
         items_layout.setSpacing(8)
 
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Search your clipboard.")
+        self.search_input.setPlaceholderText("Search your clipboard…")
         self.search_input.setAccessibleName("Search clipboard")
         self.search_input.setClearButtonEnabled(True)
         self.search_input.mousePressEvent = self.on_search_click
@@ -355,14 +355,14 @@ class SideDock(QWidget):
         self.pages.addWidget(self.ocr_workspace)
         layout.addWidget(self.pages)
 
-        # Bottom bar: mirrors resize grip & Settings ? depending on Left/Right edge
+        # Bottom bar: mirrors resize grip & Settings ⚙ depending on Left/Right edge
         self.bottom_bar = QHBoxLayout()
         self.bottom_bar.setContentsMargins(0, 0, 0, 0)
         self.grip = QSizeGrip(self)
         self.grip.setFixedSize(16, 16)
         self.grip.setToolTip("Drag to resize SideDock")
 
-        self.gear_btn = QPushButton("Settings ?")
+        self.gear_btn = QPushButton("Settings ⚙")
         self.gear_btn.setObjectName("GearBtn")
         self.gear_btn.setCursor(Qt.PointingHandCursor)
         self.gear_btn.setToolTip("Themes, monitor position, keyboard shortcuts and privacy")
@@ -705,7 +705,7 @@ class SideDock(QWidget):
                 self.ocr_workspace.set_status("History is full. Remove a card before saving.")
                 self.pages.setCurrentIndex(3)
             else:
-                self.history_status.setText("HISTORY FULL - remove an item first")
+                self.history_status.setText("HISTORY FULL — remove an item first")
             return
         self.note_composer.set_content(initial, source)
         self.pages.setCurrentIndex(2)
@@ -747,7 +747,7 @@ class SideDock(QWidget):
             total = managed_bytes(self.files_dir)
             orphaned = orphaned_managed_copies(self.files_dir, self.saved_items)
             mb = total / (1024 * 1024)
-            self.settings_panel.set_storage_usage(f"{len(self.saved_items)} saved items � {mb:.1f} MiB managed copies � {len(orphaned)} unused copies")
+            self.settings_panel.set_storage_usage(f"{len(self.saved_items)} saved items · {mb:.1f} MiB managed copies · {len(orphaned)} unused copies")
         except OSError:
             self.settings_panel.set_storage_usage("Storage usage unavailable")
 
@@ -984,7 +984,7 @@ class SideDock(QWidget):
         png = bytes(encoded)
         self._ocr_request_id += 1
         current = self._ocr_request_id
-        self.ocr_workspace.set_status("Recognizing text locally.")
+        self.ocr_workspace.set_status("Recognizing text locally…")
         def worker():
             try:
                 text = extract_text_from_png(png, executable=engine)
@@ -1279,7 +1279,7 @@ class SideDock(QWidget):
 
         visible = [item for item in pinned + unpinned if self.matches_query(item, query)
                    and (item["type"] not in ("file", "image") or Path(item["path"]).exists())]
-        self.history_status.setText(f"{len(visible)} SHOWN  �  {len(pinned)} STARRED" if query else f"{len(visible)} ITEMS  �  {len(pinned)} STARRED")
+        self.history_status.setText(f"{len(visible)} SHOWN  ·  {len(pinned)} STARRED" if query else f"{len(visible)} ITEMS  ·  {len(pinned)} STARRED")
         for item in visible:
             self.render_item(item)
         if not visible:
@@ -1309,7 +1309,7 @@ class SideDock(QWidget):
             item, self.colors, self.paste_item_now, self.set_drag_out_state
         )
         card.setCursor(Qt.PointingHandCursor)
-        card.setToolTip("Click to copy or paste � Drag to another app")
+        card.setToolTip("Click to copy or paste · Drag to another app")
         body = QVBoxLayout(card)
         body.setContentsMargins(10, 7, 9, 9)
         body.setSpacing(5)
@@ -1330,7 +1330,7 @@ class SideDock(QWidget):
         top.addWidget(copied_badge)
 
         is_fav = item.get("pinned", False)
-        star_btn = QPushButton("?" if is_fav else "?")
+        star_btn = QPushButton("★" if is_fav else "☆")
         star_btn.setFixedSize(24, 24)
         star_btn.setObjectName("CardAction")
         star_btn.setCursor(Qt.PointingHandCursor)
@@ -1342,7 +1342,7 @@ class SideDock(QWidget):
         star_btn.clicked.connect(lambda _, it=item: self.toggle_favorite(it))
         top.addWidget(star_btn)
 
-        remove_btn = QPushButton("x")
+        remove_btn = QPushButton("×")
         remove_btn.setObjectName("CloseBtn")
         remove_btn.setFixedSize(24, 24)
         remove_btn.setCursor(Qt.PointingHandCursor)

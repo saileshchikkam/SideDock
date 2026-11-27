@@ -6,7 +6,7 @@
 - Refreshes dock placement and opacity after monitor work-area and DPI changes. Keeps edge polling suspended during region OCR and when Windows input is unavailable.
 - Adds bounded local lifecycle and health logs in `SideDockData`. Logs record timing, geometry and window state. Clipboard contents and note text are excluded.
 
-## 1.0.1 - Rapid-copy Quick-Paste correction (2026-11-27)
+## 1.0.1 — Rapid-copy Quick-Paste correction (2026-11-27)
 
 - Restore the **one-time** recent-copies popup only for a *fresh burst* of two or more consecutive copies (at most 20 seconds between copies, paste within 45 seconds of the last copy).
 - Preserve standard Ctrl+V: the latest copied item pastes normally, then only earlier copied items appear as slots 2 and 3 for eight seconds.
@@ -14,7 +14,7 @@
 - Keep Ctrl+Shift+V / Ctrl+Alt+V for manual Quick-Paste history; use the current-monitor bottom-right popup and suppress spurious popups from SideDock's automatic paste.
 - **Enable SideDock shortcuts** remains ON by default for new installations; users can opt out and existing settings are respected.
 
-## 1.0.0 - Public source edition
+## 1.0.0 — Public source edition
 
 ### Core
 - Edge-peek, smooth expand/collapse, pinning, resize and movable dock.
@@ -47,7 +47,7 @@
 
 ### Distribution
 - New per-user Inno Setup Windows installer with normal uninstall, Start Menu shortcut, optional desktop shortcut, MIT license and no admin requirement.
-- Automated install  exact-binary verification  uninstall smoke test. Clipboard data is preserved.
+- Automated install → exact-binary verification → uninstall smoke test. Clipboard data is preserved.
 - Fast-start PyInstaller onedir Windows application (installed by one setup EXE) with version information, icon and SHA-256 checksum.
 - Start with Windows checkbox is enabled by default for the installing user; Windows may stagger launch after sign-in.
 - Shared per-user startup integration for Python and executable installs.
