@@ -1,8 +1,8 @@
-# SideDock v1.0.0 — public source and distribution acceptance checklist
+# SideDock v1.0.1 — public Windows release acceptance checklist
 
 ## Automated evidence
 
-- [x] **30/30 Python unit tests passed** on Windows CI, including DPI capture alignment, embedded workspaces, OCR, storage and installer contract tests.
+- [x] **41/41 Python unit tests passed** on Windows CI, including DPI capture alignment, embedded workspaces, OCR, storage and installer contract tests.
 - [x] Source Qt and offline OCR smoke tests passed.
 - [x] Fast-start PyInstaller **onedir** Windows app built and verified.
 - [x] Installed binary's OCR engine, English language model and Qt startup smoke checks passed.
@@ -12,7 +12,7 @@
 - [ ] Full native Windows desktop interaction on both Windows 10 and Windows 11 and additional security review remain desirable before claiming comprehensive platform certification.
 - [x] Maintainer has reported satisfactory core functionality on a Windows laptop, with startup apps appearing a few minutes after sign-in.
 
-Evidence: [Windows Actions run 45841684301](https://github.com/saileshchikkam/SideDock/actions/runs/45841684301), commit `7b521ac`. The artifact includes only one installer EXE, wrapped automatically in a GitHub Actions ZIP. Automated checks do **not** simulate a user's actual complete reboot, foreground hooks or multi-monitor desktop session.
+Evidence: [Windows Actions run 45997308087](https://github.com/saileshchikkam/SideDock/actions/runs/45997308087), commit `9a3e2b6`; [public v1.0.1 Release](https://github.com/saileshchikkam/SideDock/releases/tag/v1.0.1). The artifact includes only one installer EXE, wrapped automatically in a GitHub Actions ZIP. Automated checks do **not** simulate a user's actual complete reboot, foreground hooks or multi-monitor desktop session.
 
 ## Real Windows desktop acceptance
 
@@ -38,8 +38,8 @@ Use a non-sensitive test profile and disposable files. Start with the candidate 
 | Files and folders | Drag/copy, preview and drag out; originals remain intact | Pending |
 | Auto-paste | Correct target in Notepad and browser; no unintended input after focus switch | Pending |
 | Search then paste | Focus restoration succeeds safely or leaves copied item on clipboard | Pending |
-| Quick-Paste | Remaining slots and eight-second timeout; switching presets works | Pending |
-| Hotkey conflict | Numbered hotkeys inactive after popup closes; disable toggle works | Pending |
+| Quick-Paste | Ctrl+V after rapid copies pastes newest and shows only previous items once; dedicated shortcut opens history; timeout works | Maintainer confirmed rapid-copy behavior on Windows; other environments untested |
+| Hotkey conflict | Numbered hotkeys inactive after popup closes; disable toggle works; SideDock shortcuts default ON on first use | Pending full cross-application testing |
 | Favorite and clear | Starred items survive; original files remain untouched | Pending |
 | Capture pause | Automatic capture stops and resumes; manual drops remain available | Pending |
 | Restart | History, selected monitor, theme and startup preference persist | Pending |

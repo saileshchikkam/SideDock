@@ -2,25 +2,25 @@
 
 > [← Back to the project README](../README.md) · [Security](../SECURITY.md) · [Report a problem](https://github.com/saileshchikkam/SideDock/issues)
 
-This guide is for the **unsigned v1.0.0 Windows installer**, distributed directly from the [official GitHub Release](https://github.com/saileshchikkam/SideDock/releases/tag/v1.0.0). Download only from this repository or a release page controlled by its maintainer. A Microsoft Defender warning can occur with an unsigned executable; this does not prove the file is safe or malicious.
+This guide is for the **unsigned v1.0.1 Windows installer**, distributed directly from the [official GitHub Release](https://github.com/saileshchikkam/SideDock/releases/tag/v1.0.1). Download only from this repository or a release page controlled by its maintainer. A Microsoft Defender warning can occur with an unsigned executable; this does not prove the file is safe or malicious.
 
 ## A. Recommended: installer (no Python required)
 
 **Requirements:** Windows 10 or 11 (64-bit), permission to install software for your Windows user account, and enough free disk space for the bundled Qt and offline OCR components. **No GitHub login, Python, pip or ZIP extraction required.**
 
 <p align="center">
-<a href="https://github.com/saileshchikkam/SideDock/releases/download/v1.0.0/SideDock-Setup-1.0.0.exe"><img src="https://img.shields.io/badge/INSTALL%20SIDEDOCK-Download%20EXE%20directly-2563EB?style=for-the-badge&logo=windows&logoColor=white" width="440" alt="Direct Windows EXE installer download"></a>
+<a href="https://github.com/saileshchikkam/SideDock/releases/download/v1.0.1/SideDock-Setup-1.0.1.exe"><img src="https://img.shields.io/badge/INSTALL%20SIDEDOCK-Download%20EXE%20directly-2563EB?style=for-the-badge&logo=windows&logoColor=white" width="440" alt="Direct Windows EXE installer download"></a>
 </p>
 
-1. Click **Install SideDock** to download `SideDock-Setup-1.0.0.exe` from the official v1.0.0 GitHub Release. **The download is direct**, without an Actions page, artifact ZIP or GitHub login.
+1. Click **Install SideDock** to download `SideDock-Setup-1.0.1.exe` from the official v1.0.1 GitHub Release. **The download is direct**, without an Actions page, artifact ZIP or GitHub login.
 2. Scan the downloaded setup file using **Windows Security / Microsoft Defender**.
 3. Verify the installer checksum with PowerShell:
 
    ```powershell
-   Get-FileHash ".\SideDock-Setup-1.0.0.exe" -Algorithm SHA256
+   Get-FileHash ".\SideDock-Setup-1.0.1.exe" -Algorithm SHA256
    ```
 
-   The expected SHA-256 is **`25c9bf3d04d7dc72ff5a20a4a153b2cd8af4777c24fac93db6e334e0ef73119c`**. A matching hash shows that the file matches the verified release build; it is not a malware safety guarantee.
+   The expected SHA-256 is **`cb74c9113f3e4c42d96d915ecda59ccf6005b301f3fe6cce259eef8dfe483767`**. A matching hash shows that the file matches the verified release build; it is not a malware safety guarantee.
 4. If you trust the verified build, **open the downloaded EXE and approve the Windows installer**. A download link cannot install software silently. **Start SideDock automatically when I sign in to Windows** is selected by default; you can opt out.
 6. Start SideDock from the Start Menu (or the optional desktop shortcut). Hover near your chosen screen edge to reveal the dock.
 
@@ -81,7 +81,7 @@ $env:SIDEDOCK_OCR_DIR = "C:\Program Files\Tesseract-OCR"
 .\.venv\Scripts\python.exe scripts/build_installer.py
 ```
 
-The verified installer appears in `dist/SideDock-Setup-1.0.0.exe`. It contains the installed one-directory SideDock app, including the local OCR engine. Run the tests and inspect the corresponding SHA-256 checksum before redistributing.
+The verified installer appears in `dist/SideDock-Setup-1.0.1.exe`. It contains the installed one-directory SideDock app, including the local OCR engine. Run the tests and inspect the corresponding SHA-256 checksum before redistributing.
 
 ## F. Troubleshooting
 
