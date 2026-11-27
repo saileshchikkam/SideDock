@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased — Rapid-copy Quick-Paste correction
+
+- Restore the **one-time** recent-copies popup only for a *fresh burst* of two or more consecutive copies (at most 20 seconds between copies, paste within 45 seconds of the last copy).
+- Preserve standard Ctrl+V: the latest copied item pastes normally, then only earlier copied items appear as slots 2 and 3 for eight seconds.
+- No popup for a single copy, old saved clipboard history, repeated Ctrl+V, or an expired burst. Copying a fresh sequence re-arms it.
+- Keep Ctrl+Shift+V / Ctrl+Alt+V for manual Quick-Paste history; use the current-monitor bottom-right popup and suppress spurious popups from SideDock's automatic paste.
+- **Enable SideDock shortcuts** remains ON by default for new installations; users can opt out and existing settings are respected.
+
 ## 1.0.0 — Public source edition
 
 ### Core

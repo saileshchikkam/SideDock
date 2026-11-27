@@ -51,7 +51,7 @@ from sidedock.branding import app_icon
 from sidedock.autostart import is_enabled as autostart_enabled, set_enabled as set_autostart_enabled
 from sidedock.version import __version__
 from sidedock.presentation import card_kind, preview_text
-from sidedock.interaction import shortcut_keys, select_paste_target
+from sidedock.interaction import shortcut_keys, select_paste_target, CopyBurst
 from sidedock.storage import atomic_write_json, can_capture, file_digest, managed_bytes, orphaned_managed_copies, cleanup_orphaned_copies, MAX_FILE_BYTES, MAX_TEXT_BYTES, MAX_MANAGED_BYTES
 from sidedock.ocr import find_tesseract, extract_text_from_png
 from sidedock.composer import NoteComposer, OCRWorkspace
@@ -137,9 +137,10 @@ class SideDock(QWidget):
         self._is_dragging_dock = False
         self.is_pinned = False
         self.is_expanded = False
-        self.rapid_buffer = []
+        self.copy_burst = CopyBurst()
         self._search_target = None
         self._paste_generation = 0
+        self._internal_paste_popup_guard_until = 0.0
         self._hotkey_removers = []
         self._slot_removers = []
         self._editing = False
@@ -400,7 +401,7 @@ class SideDock(QWidget):
         self.tray_pause.setCheckable(True)
         self.tray_pause.setChecked(self._capture_paused)
         self.tray_pause.toggled.connect(self.set_capture_paused)
-        self.tray_shortcuts = self.tray_menu.addAction("Enable global shortcuts")
+        self.tray_shortcuts = self.tray_menu.addAction("Enable SideDock shortcuts")
         self.tray_shortcuts.setCheckable(True)
         self.tray_shortcuts.setChecked(self.settings.get("shortcuts_enabled", True))
         self.tray_shortcuts.toggled.connect(self.set_shortcuts_enabled)
@@ -482,6 +483,9 @@ class SideDock(QWidget):
 
     def set_shortcuts_enabled(self, enabled):
         self.settings["shortcuts_enabled"] = enabled
+        if not enabled:
+            # An explicit opt-out cancels any pending rapid-copy offer.
+            self.copy_burst.clear()
         self.settings_panel.sync_shortcut_controls()
         if hasattr(self, "tray_shortcuts"):
             self.tray_shortcuts.blockSignals(True)
@@ -612,7 +616,7 @@ class SideDock(QWidget):
         self._last_clip_seq = user32.GetClipboardSequenceNumber()
         self._ignore_clipboard = False
         self.settings["capture_paused"] = paused
-        self.rapid_buffer = []
+        self.copy_burst.clear()
         self.quick_popup.dismiss()
         self.save_json(self.settings_file, self.settings)
 
@@ -723,7 +727,7 @@ class SideDock(QWidget):
         removed = [item for item in self.saved_items if not item.get("pinned")]
         self.save_json(self.index_file, kept)
         self.saved_items = kept
-        self.rapid_buffer = []
+        self.copy_burst.clear()
         self.quick_popup.dismiss()
         for item in removed:
             self.remove_managed_file(item)
@@ -765,18 +769,32 @@ class SideDock(QWidget):
         )
 
     def on_ctrl_v(self):
-        if len(self.rapid_buffer) >= 2:
-            self.trigger_after_paste_signal.emit()
+        # Windows native Ctrl+V is never suppressed or replaced. Do not
+        # intercept the distinct Ctrl+Shift+V / Ctrl+Alt+V shortcuts here.
+        if keyboard.is_pressed("shift") or keyboard.is_pressed("alt"):
+            return
+        self.trigger_after_paste_signal.emit()
 
     def open_remaining_popup(self):
-        remaining = list(enumerate(self.rapid_buffer[1:3], start=2))
-        self.rapid_buffer = []
-        if not self.settings.get("shortcuts_enabled", True):
+        # This handler runs in Qt's UI thread; wait for the native paste.
+        QTimer.singleShot(140, self.show_recent_copies_popup)
+
+    def show_recent_copies_popup(self):
+        if (not self.settings.get("shortcuts_enabled", True)
+                or self._editing
+                or time.monotonic() < self._internal_paste_popup_guard_until):
             return
-        self.quick_popup.show_slots(remaining, f"Also Copied ({self.shortcut_keys()[2]}+2/3)")
+        # Offer previous copies ONLY for a fresh, rapid multi-copy batch.
+        # Native Ctrl+V already pasted slot 1 (the most recent copy).
+        # Never show old saved history or show the newest item again.
+        remaining = self.copy_burst.consume_remaining(time.monotonic())
+        if remaining:
+            self.quick_popup.show_slots(
+                remaining, f"Also copied ({self.shortcut_keys()[2]}+2/3)"
+            )
 
     def open_all_slots_popup(self):
-        items = self.rapid_buffer if self.rapid_buffer else self.saved_items[:3]
+        items = self.copy_burst.items if self.copy_burst.items else self.saved_items[:3]
         numbered = list(enumerate(items[:3], start=1))
         if not self.settings.get("shortcuts_enabled", True):
             return
@@ -785,6 +803,9 @@ class SideDock(QWidget):
     def paste_item_now(self, item):
         if item["type"] in ("image", "file") and not Path(item["path"]).exists():
             return
+        # Explicitly choosing a card/Quick-Paste item completes the manual
+        # workflow; do not surprise the user with a later Ctrl+V offer.
+        self.copy_burst.clear()
         if item["type"] == "image":
             self.copy_image_back(item["path"])
         elif item["type"] == "file":
@@ -804,6 +825,7 @@ class SideDock(QWidget):
             user32.SetForegroundWindow(target[0])
         def send_if_target():
             if generation == self._paste_generation and window_identity(user32.GetForegroundWindow()) == target:
+                self._internal_paste_popup_guard_until = time.monotonic() + 0.75
                 keyboard.send("ctrl+v")
         QTimer.singleShot(80, send_if_target)
 
@@ -993,7 +1015,8 @@ class SideDock(QWidget):
         if self._is_dragging_out:
             return
         self.apply_theme(drag_highlight=False)
-        self.safe_process_mime(event.mimeData())
+        # Dragging items into the dock is not a Ctrl+C copying burst.
+        self.safe_process_mime(event.mimeData(), rapid=False)
         event.acceptProposedAction()
 
     def toggle_pin(self, checked):
@@ -1053,17 +1076,19 @@ class SideDock(QWidget):
         self.saved_items.insert(0, item)
         self.refresh_storage_usage()
         if rapid:
-            self.rapid_buffer.insert(0, item)
-            self.rapid_buffer = self.rapid_buffer[:3]
+            # A new copy invalidates any still-visible previous selection.
+            if self.quick_popup.slot_map:
+                self.quick_popup.dismiss()
+            self.copy_burst.record(item, time.monotonic())
         self.refresh_list()
 
-    def safe_process_mime(self, mime):
+    def safe_process_mime(self, mime, rapid=True):
         try:
-            self.process_mime(mime)
+            self.process_mime(mime, rapid=rapid)
         except (OSError, ValueError):
             logging.exception("SideDock could not capture an item")
 
-    def process_mime(self, mime):
+    def process_mime(self, mime, rapid=True):
         if mime is None or not can_capture(self.saved_items):
             return
         if mime.hasUrls() and any(url.isLocalFile() for url in mime.urls()):
@@ -1076,7 +1101,7 @@ class SideDock(QWidget):
                 latest = self.saved_items[0] if self.saved_items else {}
                 if src.is_dir():
                     if latest.get("path") != str(src):
-                        self.record_new_item({"type": "file", "name": src.name, "path": str(src)})
+                        self.record_new_item({"type": "file", "name": src.name, "path": str(src)}, rapid=rapid)
                     continue
                 size = src.stat().st_size
                 if size > MAX_FILE_BYTES or managed_bytes(self.files_dir) + size > MAX_MANAGED_BYTES:
@@ -1090,7 +1115,7 @@ class SideDock(QWidget):
                     shutil.copy2(src, dest)
                     if dest.stat().st_size > size:
                         raise ValueError("File grew during capture")
-                    self.record_new_item({"type": kind, "path": str(dest), "hash": digest, "name": src.name})
+                    self.record_new_item({"type": kind, "path": str(dest), "hash": digest, "name": src.name}, rapid=rapid)
                 except (OSError, ValueError):
                     dest.unlink(missing_ok=True)
                     raise
@@ -1114,7 +1139,7 @@ class SideDock(QWidget):
             file_path = self.files_dir / f"img_{uuid.uuid4().hex}.png"
             try:
                 file_path.write_bytes(img_bytes)
-                self.record_new_item({"type": "image", "path": str(file_path), "hash": img_hash})
+                self.record_new_item({"type": "image", "path": str(file_path), "hash": img_hash}, rapid=rapid)
             except (OSError, ValueError):
                 file_path.unlink(missing_ok=True)
                 raise
@@ -1126,7 +1151,7 @@ class SideDock(QWidget):
                 return
             if self.saved_items and self.saved_items[0].get("content") == text:
                 return
-            self.record_new_item({"type": "text", "content": text})
+            self.record_new_item({"type": "text", "content": text}, rapid=rapid)
 
     def matches_query(self, item, query):
         if not query:
@@ -1255,7 +1280,7 @@ class SideDock(QWidget):
             remaining.remove(item)
             self.save_json(self.index_file, remaining)
             self.saved_items = remaining
-        self.rapid_buffer = [entry for entry in self.rapid_buffer if entry is not item]
+        self.copy_burst.forget(item)
         self.quick_popup.dismiss()
         self.remove_managed_file(item)
         self.refresh_list()
