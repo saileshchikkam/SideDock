@@ -27,6 +27,8 @@ Downloading an executable does not automatically install it; Windows requires yo
 
 ## Verification
 
+- Windows installer SHA-256: `cb74c9113f3e4c42d96d915ecda59ccf6005b301f3fe6cce259eef8dfe483767`
+- Verified successful Windows Actions build: https://github.com/saileshchikkam/SideDock/actions/runs/45997308087 (source commit `9a3e2b6`).
 The change was validated in PR [#2](https://github.com/saileshchikkam/SideDock/pull/2) with **41/41 Windows unit tests**, packaged offline OCR, desktop smoke testing, installer startup integration and uninstall smoke checks. The maintainer also confirmed the intended popup behavior on their Windows PC.
 
 **Privacy:** SideDock works locally and its stored clipboard history is not encrypted. Pause capture before copying confidential material.

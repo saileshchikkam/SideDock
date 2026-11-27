@@ -1,0 +1,55 @@
+name: Publish SideDock v1.0.1 Windows installer
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/publish-v1.0.1.yml"
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out release notes
+        uses: actions/checkout@v4
+
+      - name: Download the verified v1.0.1 Windows installer
+        uses: actions/download-artifact@v4
+        with:
+          name: SideDock-Windows-Installer
+          repository: saileshchikkam/SideDock
+          run-id: 45997308087
+          github-token: ${{ github.token }}
+          path: dist
+
+      - name: Verify exactly one correct signed-off-by-CI installer
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f dist/SideDock-Setup-1.0.1.exe
+          test "$(find dist -maxdepth 1 -type f | wc -l)" -eq 1
+          echo 'cb74c9113f3e4c42d96d915ecda59ccf6005b301f3fe6cce259eef8dfe483767  dist/SideDock-Setup-1.0.1.exe' | sha256sum --check
+          echo "Verified v1.0.1 installer from successful Windows CI run 45997308087"
+
+      - name: Publish stable direct-download GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: saileshchikkam/SideDock
+        run: |
+          set -euo pipefail
+          if gh release view v1.0.1 >/dev/null 2>&1; then
+            echo "v1.0.1 release already exists; not overwriting a published asset."
+            exit 0
+          fi
+          gh release create v1.0.1 dist/SideDock-Setup-1.0.1.exe \
+            --target "$GITHUB_SHA" \
+            --title "SideDock v1.0.1 — Windows" \
+            --notes-file docs/RELEASE_NOTES_v1.0.1.md \
+            --latest
+          gh release view v1.0.1 --json tagName,isDraft,isPrerelease,assets,url
