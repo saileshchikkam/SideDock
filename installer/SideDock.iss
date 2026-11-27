@@ -1,7 +1,7 @@
 ; SideDock v1.0 — per-user installer (Inno Setup 6)
 ; Never remove or migrate %USERPROFILE%\SideDockData in the installer/uninstaller.
 #ifndef MyAppVersion
-  #define MyAppVersion "1.0.0"
+  #define MyAppVersion "1.0.1"
 #endif
 
 [Setup]

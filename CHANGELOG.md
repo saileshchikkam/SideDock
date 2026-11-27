@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased — Rapid-copy Quick-Paste correction
+## 1.0.1 — Rapid-copy Quick-Paste correction (2026-11-27)
 
 - Restore the **one-time** recent-copies popup only for a *fresh burst* of two or more consecutive copies (at most 20 seconds between copies, paste within 45 seconds of the last copy).
 - Preserve standard Ctrl+V: the latest copied item pastes normally, then only earlier copied items appear as slots 2 and 3 for eight seconds.
