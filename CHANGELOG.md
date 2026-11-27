@@ -48,8 +48,8 @@
 - GitHub Actions Windows build and isolated source and binary smoke tests.
 
 ### Known limitations and release gates
-- Full native interactive desktop testing is pending.
+- Additional native Windows 10/11 hardware and cross-application testing remains desirable.
 - Clipboard history and stored copies are not encrypted.
 - Executable is unsigned.
 - No automatic update mechanism; release artifacts are static snapshots.
-- MIT License and public source are available on `main`; a direct downloadable GitHub Release asset and broader native Windows 10/11 coverage are still pending.
+- MIT-licensed source is public on `main`. Direct GitHub Release EXE downloads are now available; broader Windows 10/11 device coverage remains an ongoing quality goal.
