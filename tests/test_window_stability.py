@@ -200,3 +200,12 @@ class EdgeGuardTests(unittest.TestCase):
         self.api.GetForegroundWindow.return_value = None
         self.assertFalse(windowing.edge_available(10, polling=True))
         self.assertTrue(windowing.edge_available(10))
+
+    def test_hit_diagnostics_distinguish_dock_children_from_obstruction(self):
+        self.api.WindowFromPoint.return_value = 11
+        self.api.GetAncestor.return_value = 10
+        self.assertTrue(windowing.pointer_hits_dock(10))
+        self.api.GetAncestor.return_value = 20
+        self.assertFalse(windowing.pointer_hits_dock(10))
+        self.api.WindowFromPoint.return_value = None
+        self.assertIsNone(windowing.pointer_hits_dock(10))

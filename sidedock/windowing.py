@@ -31,6 +31,10 @@ class MonitorInfo(ctypes.Structure):
 user32.GetForegroundWindow.restype = wintypes.HWND
 user32.GetCursorPos.argtypes = [ctypes.POINTER(wintypes.POINT)]
 user32.GetCursorPos.restype = wintypes.BOOL
+user32.WindowFromPoint.argtypes = [wintypes.POINT]
+user32.WindowFromPoint.restype = wintypes.HWND
+user32.GetAncestor.argtypes = [wintypes.HWND, wintypes.UINT]
+user32.GetAncestor.restype = wintypes.HWND
 user32.GetAsyncKeyState.argtypes = [ctypes.c_int]
 user32.GetAsyncKeyState.restype = ctypes.c_short
 user32.MonitorFromPoint.argtypes = [wintypes.POINT, wintypes.DWORD]
@@ -76,6 +80,16 @@ def raise_without_activation(hwnd):
         hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE,
     ):
         log.warning("SetWindowPos failed code=%s", ctypes.get_last_error())
+
+
+def pointer_hits_dock(hwnd):
+    cursor = wintypes.POINT()
+    if not user32.GetCursorPos(ctypes.byref(cursor)):
+        return None
+    hit = user32.WindowFromPoint(cursor)
+    if not hit:
+        return None
+    return hit == hwnd or user32.GetAncestor(hit, 2) == hwnd  # GA_ROOT
 
 
 def edge_available(hwnd, *, polling=False):

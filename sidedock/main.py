@@ -65,7 +65,7 @@ from sidedock.widgets import (
     SettingsPanel,
 )
 from sidedock.windowing import (
-    edge_available, is_topmost, raise_without_activation, set_no_activate,
+    edge_available, is_topmost, pointer_hits_dock, raise_without_activation, set_no_activate,
 )
 
 user32 = ctypes.windll.user32
@@ -1031,6 +1031,7 @@ class SideDock(QWidget):
             return
         self._edge_samples += 1
         if self._edge_samples >= 2:
+            diagnostic_log.info("edge fallback pointer_hits_dock=%s", pointer_hits_dock(int(self.winId())))
             self.expand(source="edge polling")
 
     def is_cursor_in_dock_zone(self):
@@ -1480,7 +1481,7 @@ def main():
         except (OSError, ValueError) as exc:
             diagnostic_log.error("startup failed type=%s", type(exc).__name__)
             QMessageBox.critical(None, "SideDock", str(exc))
-            return
+            raise SystemExit(exit_code) from None
         dock.show()
         exit_code = app.exec()
     except Exception:
