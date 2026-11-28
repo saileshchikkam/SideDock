@@ -115,6 +115,14 @@ class DockStabilityTests(unittest.TestCase):
         self.dock.check_edge_hover()
         self.assertTrue(self.dock.is_expanded)
 
+    def test_deferred_layout_timers_cannot_outlive_dock(self):
+        self.assertIs(self.dock.initial_load_timer.parent(), self.dock)
+        self.assertIs(self.dock.list_width_timer.parent(), self.dock)
+        self.dock.hide()
+        self.dock.show()
+        QTest.qWait(220)
+        self.assertTrue(self.dock.isVisible())
+
     def test_watchdog_restores_hidden_dock_after_show_desktop(self):
         self.assertTrue(self.dock.visibility_watch.isActive())
         self.dock.hide()
