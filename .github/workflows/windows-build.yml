@@ -10,6 +10,12 @@ on:
 permissions:
   contents: read
 
+# New pushes to a PR supersede its older test runs. Never cancel a distinct
+# main-branch build, because each published binary must have complete CI.
+concurrency:
+  group: windows-build-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   windows:
     runs-on: windows-latest
