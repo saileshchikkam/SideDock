@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.2 candidate
+## 1.0.2 — Multitasking stability (2026-11-28)
 
 - The dock can detect a pointer at its six-pixel strip when another window prevents Qt from delivering a hover event. Revealing the dock restores its topmost position without activating it.
 - Refreshes dock placement and opacity after monitor work-area and DPI changes. Keeps edge polling suspended during region OCR and when Windows input is unavailable.
