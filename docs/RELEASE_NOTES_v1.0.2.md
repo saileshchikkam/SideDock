@@ -21,7 +21,7 @@ Controlled edge-event and native window tests validated the hover recovery and n
 
 Download `SideDock-Setup-1.0.2.exe` from this release. No Python or GitHub account is required. If already using v1.0.1, exit SideDock and install v1.0.2 over the existing installation to preserve saved data. Backing up `%USERPROFILE%\SideDockData` before upgrading is recommended.
 
-**Security and privacy:** The installer is **unsigned**, so Microsoft Defender SmartScreen may show an unknown-publisher warning. Verify the installer source and SHA-256 file, and do not disable security protection or override malware detections. SideDock is local-first, but stored clipboard history and notes **are not encrypted**. Avoid capturing sensitive credentials or private tokens. See [Security and privacy](../SECURITY.md) and the [installation guide](INSTALLATION.md).
+**Security and privacy:** The installer is **unsigned**, so Microsoft Defender SmartScreen may show an unknown-publisher warning. Verify the installer source and SHA-256 file, and do not disable security protection or override malware detections. SideDock is local-first, but stored clipboard history and notes **are not encrypted**. Avoid capturing sensitive credentials or private tokens. See [Security and privacy](https://github.com/saileshchikkam/SideDock/blob/main/SECURITY.md) and the [installation guide](https://github.com/saileshchikkam/SideDock/blob/main/docs/INSTALLATION.md).
 
 For issues or feedback, use [GitHub Issues](https://github.com/saileshchikkam/SideDock/issues).
 
