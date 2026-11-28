@@ -36,7 +36,7 @@ jobs:
       - name: Native Windows topmost/focus regression
         env:
           QT_QPA_PLATFORM: windows
-        run: python -m unittest discover -s tests -p test_window_stability.py -k native_reveal -v
+        run: python -m unittest discover -s tests -p test_window_stability.py -k native_ -v
       - name: Check source smoke test
         run: python -m sidedock --smoke-test
       - name: Check source OCR against bundled language data
