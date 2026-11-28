@@ -223,6 +223,14 @@ class SideDock(QWidget):
         self.visibility_watch = QTimer(self)
         self.visibility_watch.setInterval(850)
         self.visibility_watch.timeout.connect(self.ensure_dock_accessible)
+        # Parent-owned timers are cancelled when Qt destroys the dock, unlike
+        # bare singleShot callbacks that could run after child widgets die.
+        self.initial_load_timer = QTimer(self)
+        self.initial_load_timer.setSingleShot(True)
+        self.initial_load_timer.timeout.connect(self.refresh_list)
+        self.list_width_timer = QTimer(self)
+        self.list_width_timer.setSingleShot(True)
+        self.list_width_timer.timeout.connect(self.sync_list_width)
 
         # 5. Rounded glass container
         self.container = QFrame(self)
@@ -381,7 +389,7 @@ class SideDock(QWidget):
         self.apply_theme()
         self.history_status.setText("RESTORING SAVED ITEMS…")
         # Show the narrow edge immediately on sign-in before rebuilding cards.
-        QTimer.singleShot(180, self.refresh_list)
+        self.initial_load_timer.start(180)
 
         # 6. Reliable Windows clipboard watcher
         self.clipboard = QApplication.clipboard()
@@ -842,7 +850,7 @@ class SideDock(QWidget):
         self.apply_theme()
         if not self.is_expanded:
             self.edge_watch.start()
-        QTimer.singleShot(0, self.sync_list_width)
+        self.list_width_timer.start(0)
         self.log_dock_state("show")
 
     def hideEvent(self, event):
