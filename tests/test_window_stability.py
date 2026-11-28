@@ -266,6 +266,18 @@ class EdgeGuardTests(unittest.TestCase):
         self.api.IsWindow.return_value = False
         self.assertFalse(windowing.restore_window_without_activation(42))
 
+    def test_second_launch_wakes_existing_dock_not_a_new_instance(self):
+        self.api.FindWindowW.return_value = 42
+        self.api.IsWindow.return_value = True
+        self.assertTrue(windowing.wake_existing_instance())
+        self.api.ShowWindowAsync.assert_called_once_with(42, windowing.SW_SHOWNOACTIVATE)
+        self.api.SetWindowPos.assert_called_once_with(
+            42, windowing.HWND_TOPMOST, 0, 0, 0, 0,
+            windowing.SWP_NOSIZE | windowing.SWP_NOMOVE | windowing.SWP_NOACTIVATE,
+        )
+        self.api.FindWindowW.return_value = 0
+        self.assertFalse(windowing.wake_existing_instance())
+
     def test_hit_diagnostics_distinguish_dock_children_from_obstruction(self):
         self.api.WindowFromPoint.return_value = 11
         self.api.GetAncestor.return_value = 10
