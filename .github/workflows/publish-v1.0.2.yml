@@ -1,0 +1,79 @@
+name: Publish SideDock v1.0.2
+
+# Release only a successfully tested artifact built from the main branch.
+# This workflow remains inert while PR #3 is open.
+on:
+  workflow_run:
+    workflows: ["Windows build"]
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    if: >-
+      ${{ github.event.workflow_run.conclusion == 'success'
+      && github.event.workflow_run.head_branch == 'main'
+      && github.event.workflow_run.event == 'push' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Validate source version and whether release already exists
+        id: preflight
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q '^__version__ = "1.0.2"$' sidedock/version.py || {
+            echo "Not a v1.0.2 build; release workflow is not applicable."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          }
+          if gh release view v1.0.2 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "v1.0.2 is already published; never overwrite release assets."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download exact installer from successful main build
+        if: steps.preflight.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-asset
+          gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name SideDock-Windows-Installer --dir release-asset
+          test -s release-asset/SideDock-Setup-1.0.2.exe
+          test "$(stat -c%s release-asset/SideDock-Setup-1.0.2.exe)" -gt 1000000
+          test "$(head -c2 release-asset/SideDock-Setup-1.0.2.exe)" = "MZ"
+          (cd release-asset && sha256sum SideDock-Setup-1.0.2.exe > SHA256SUMS.txt)
+          cat release-asset/SHA256SUMS.txt
+
+      - name: Publish official immutable v1.0.2 assets
+        if: steps.preflight.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TESTED_SHA: ${{ github.event.workflow_run.head_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create v1.0.2 \
+            release-asset/SideDock-Setup-1.0.2.exe \
+            release-asset/SHA256SUMS.txt \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$TESTED_SHA" \
+            --title "SideDock v1.0.2 — Multitasking stability" \
+            --notes-file docs/RELEASE_NOTES_v1.0.2.md
+          gh release view v1.0.2 --repo "$GITHUB_REPOSITORY" \
+            --json url,tagName,isDraft,isPrerelease,assets

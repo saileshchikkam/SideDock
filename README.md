@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/saileshchikkam/SideDock/releases/download/v1.0.1/SideDock-Setup-1.0.1.exe">
+  <a href="https://github.com/saileshchikkam/SideDock/releases/download/v1.0.2/SideDock-Setup-1.0.2.exe">
     <img src="https://img.shields.io/badge/INSTALL%20SIDEDOCK-Download%20Windows%20EXE-2563EB?style=for-the-badge&logo=windows&logoColor=white" width="420" alt="Install SideDock — directly download the Windows setup EXE">
   </a>
   <br>
@@ -34,7 +34,7 @@
 </p>
 
 > [!IMPORTANT]
-> **SideDock v1.0.1 — public release.** Download the Windows installer directly from the [official GitHub Release](https://github.com/saileshchikkam/SideDock/releases/tag/v1.0.1); **no GitHub login or Actions ZIP is required**. The installer is **unsigned**, and Windows may show Microsoft Defender SmartScreen. Check the [safe installation instructions](docs/INSTALLATION.md) before running it.
+> **SideDock v1.0.2 — public release.** Download the Windows installer directly from the [official GitHub Release](https://github.com/saileshchikkam/SideDock/releases/tag/v1.0.2); **no GitHub login or Actions ZIP is required**. The installer is **unsigned**, and Windows may show Microsoft Defender SmartScreen. Check the [safe installation instructions](docs/INSTALLATION.md) before running it.
 
 <p align="center">
   <img src="docs/assets/product-preview.svg" width="1100" alt="Illustrated SideDock product concept: edge dock with searchable note and OCR text cards">
@@ -134,11 +134,11 @@ SideDock works **alongside**, not instead of, standard Windows tools. Apps that 
 **All most people need:** Windows 10 or 11 (64-bit). **No Python, pip, Git, coding tools, GitHub account or separate OCR installation required.**
 
 <p align="center">
-  <a href="https://github.com/saileshchikkam/SideDock/releases/download/v1.0.1/SideDock-Setup-1.0.1.exe"><img src="https://img.shields.io/badge/INSTALL%20SIDEDOCK-Direct%20EXE%20download-2563EB?style=for-the-badge&logo=windows&logoColor=white" width="450" alt="Install SideDock: download Windows setup EXE directly"></a>
+  <a href="https://github.com/saileshchikkam/SideDock/releases/download/v1.0.2/SideDock-Setup-1.0.2.exe"><img src="https://img.shields.io/badge/INSTALL%20SIDEDOCK-Direct%20EXE%20download-2563EB?style=for-the-badge&logo=windows&logoColor=white" width="450" alt="Install SideDock: download Windows setup EXE directly"></a>
 </p>
 
-1. **Click Install SideDock above.** Your browser downloads `SideDock-Setup-1.0.1.exe` directly from the [official GitHub v1.0.1 release](https://github.com/saileshchikkam/SideDock/releases/tag/v1.0.1); no ZIP extraction or GitHub sign-in.
-2. **Scan and verify** the downloaded file. SHA-256: `cb74c9113f3e4c42d96d915ecda59ccf6005b301f3fe6cce259eef8dfe483767` (see the [installation guide](docs/INSTALLATION.md)).
+1. **Click Install SideDock above.** Your browser downloads `SideDock-Setup-1.0.2.exe` directly from the [official GitHub v1.0.2 release](https://github.com/saileshchikkam/SideDock/releases/tag/v1.0.2); no ZIP extraction or GitHub sign-in.
+2. **Scan and verify** the downloaded file. Compare its SHA-256 with the **SHA256SUMS.txt** asset attached to the [v1.0.2 GitHub Release](https://github.com/saileshchikkam/SideDock/releases/tag/v1.0.2) (see the [installation guide](docs/INSTALLATION.md)).
 3. Open the downloaded `.exe` and follow the Windows installer. Windows will request your approval; downloading cannot automatically run an installer.
 4. **Start SideDock when I sign in to Windows** is selected by default. You can uncheck this during setup or toggle it later from SideDock's tray menu.
 5. Hover at the configured screen edge to open the dock.
@@ -152,11 +152,11 @@ SideDock works **alongside**, not instead of, standard Windows tools. Apps that 
 <p align="center"><img src="docs/assets/smartscreen-guide.svg" width="1080" alt="Illustrated guide to the More info and Run anyway controls in an unsigned Windows installer warning"></p>
 <p align="center"><sub>Illustrative guide, not an authentic screenshot. Windows dialogs vary by version and policy.</sub></p>
 
-1. **Check the source.** Download only from the [official SideDock v1.0.1 release](https://github.com/saileshchikkam/SideDock/releases/tag/v1.0.1). Scan the installer with Microsoft Defender.
+1. **Check the source.** Download only from the [official SideDock v1.0.2 release](https://github.com/saileshchikkam/SideDock/releases/tag/v1.0.2). Scan the installer with Microsoft Defender.
 2. **Verify its SHA-256 fingerprint** against the value shown on the official release page:
 
    ```powershell
-   Get-FileHash ".\SideDock-Setup-1.0.1.exe" -Algorithm SHA256
+   Get-FileHash ".\SideDock-Setup-1.0.2.exe" -Algorithm SHA256
    ```
 
 3. If you trust the verified file and Windows displays **More info**, selecting it can reveal the program and publisher details.
@@ -247,7 +247,7 @@ $env:SIDEDOCK_OCR_DIR = "C:\Program Files\Tesseract-OCR"
 .\.venv\Scripts\python.exe scripts/build_installer.py
 ```
 
-Build output: `dist/SideDock-Setup-1.0.1.exe`, a fast-start installed app under `dist/SideDock/`, and `dist/SHA256SUMS.txt`. GitHub Actions uploads **one installer EXE per new build artifact**. The source build is not intended for macOS or Linux.
+Build output: `dist/SideDock-Setup-1.0.2.exe`, a fast-start installed app under `dist/SideDock/`, and `dist/SHA256SUMS.txt`. GitHub Actions uploads **one installer EXE per new build artifact**. The source build is not intended for macOS or Linux.
 
 ## FAQ
 
@@ -271,7 +271,7 @@ The current installer is **unsigned** and may not have established publisher rep
 
 <details><summary><strong>Why is there a ZIP if I only want one EXE?</strong></summary>
 
-Use the large **Install SideDock** button above or the [direct .exe download](https://github.com/saileshchikkam/SideDock/releases/download/v1.0.1/SideDock-Setup-1.0.1.exe). This downloads just the Windows installer—no Actions artifacts, ZIP extraction or GitHub login. Windows still requires you to run and approve the downloaded program.
+Use the large **Install SideDock** button above or the [direct .exe download](https://github.com/saileshchikkam/SideDock/releases/download/v1.0.2/SideDock-Setup-1.0.2.exe). This downloads just the Windows installer—no Actions artifacts, ZIP extraction or GitHub login. Windows still requires you to run and approve the downloaded program.
 
 </details>
 
@@ -290,7 +290,7 @@ Not in this release. The app is designed for Windows 10/11 and uses Windows-spec
 ## Roadmap & release status
 
 - **Implemented:** edge dock, capture and paste, favorites, Quick-Paste, embedded notes, in-app region OCR, dark themes, local storage tools, Windows installer and startup registration.
-- **Published:** the public v1.0.1 GitHub Release includes a directly downloadable Windows installer with a verified SHA-256 checksum. Broader Windows 10/11 hardware testing and code signing remain future improvements.
+- **Published:** the public v1.0.2 GitHub Release includes a directly downloadable Windows installer with a verified SHA-256 checksum. Broader Windows 10/11 hardware testing and code signing remain future improvements.
 - **Future possibilities (not shipped):** code signing, built-in update checks, more OCR languages and accessibility refinement.
 
 Follow [the changelog](CHANGELOG.md), [release checklist](docs/RELEASE_CHECKLIST.md) and [open issues](https://github.com/saileshchikkam/SideDock/issues). Please avoid posting sensitive copied content or private screenshots in public issues.

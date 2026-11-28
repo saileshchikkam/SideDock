@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.2 — Multitasking stability (2026-11-28)
+
+- The dock can detect a pointer at its six-pixel strip when another window prevents Qt from delivering a hover event. Revealing the dock restores its topmost position without activating it.
+- Refreshes dock placement and opacity after monitor work-area and DPI changes. Keeps edge polling suspended during region OCR and when Windows input is unavailable.
+- Adds bounded local lifecycle and health logs in `SideDockData`. Logs record timing, geometry and window state. Clipboard contents and note text are excluded.
+
 ## 1.0.1 — Rapid-copy Quick-Paste correction (2026-11-27)
 
 - Restore the **one-time** recent-copies popup only for a *fresh burst* of two or more consecutive copies (at most 20 seconds between copies, paste within 45 seconds of the last copy).
