@@ -437,10 +437,9 @@ class SideDock(QWidget):
             recovered = True
         if restore_window_without_activation(hwnd):
             recovered = True
-        if self.isMinimized():
-            self.setWindowState(self.windowState() & ~Qt.WindowMinimized)
-            self.show()
-            recovered = True
+        # Do not call QWidget.setWindowState(WindowNoState) here:
+        # Qt may activate the window after a minimize/restore transition.
+        # ShowWindowAsync(SW_SHOWNOACTIVATE) above restores it natively.
         if not is_topmost(hwnd):
             raise_without_activation(hwnd)
             recovered = True
