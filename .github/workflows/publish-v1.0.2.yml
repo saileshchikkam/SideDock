@@ -1,7 +1,7 @@
 name: Publish SideDock v1.0.2
 
-# Release only a successfully tested artifact built from the main branch.
-# This workflow remains inert while PR #3 is open.
+# An explicit, one-time in-place refresh of the already public v1.0.2 release.
+# Normal pushes and docs-only commits must NEVER silently replace an installer.
 on:
   workflow_run:
     workflows: ["Windows build"]
@@ -24,26 +24,32 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
 
-      - name: Validate source version and whether release already exists
+      - name: Require exact 1.0.2 version and approved republish marker
         id: preflight
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          grep -q '^__version__ = "1.0.2"$' sidedock/version.py || {
-            echo "Not a v1.0.2 build; release workflow is not applicable."
+          if ! grep -qx '__version__ = "1.0.2"' sidedock/version.py; then
+            echo "Unrelated version; do not publish."
             echo "publish=false" >> "$GITHUB_OUTPUT"
             exit 0
-          }
-          if gh release view v1.0.2 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "v1.0.2 is already published; never overwrite release assets."
-            echo "publish=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "publish=true" >> "$GITHUB_OUTPUT"
           fi
+          if ! git log -1 --format=%B HEAD | grep -Fq '[republish-v1.0.2]'; then
+            echo "Not an explicitly authorized v1.0.2 refresh; no asset changes."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          gh release view v1.0.2 --repo "$GITHUB_REPOSITORY" >/dev/null
+          count=$(gh release view v1.0.2 --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets | length')
+          if [ "$count" -ne 2 ]; then
+            echo "Unexpected release asset count: $count" >&2
+            exit 1
+          fi
+          echo "publish=true" >> "$GITHUB_OUTPUT"
 
-      - name: Download exact installer from successful main build
+      - name: Download the exact installer from successful main Windows build
         if: steps.preflight.outputs.publish == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -60,7 +66,7 @@ jobs:
           (cd release-asset && sha256sum SideDock-Setup-1.0.2.exe > SHA256SUMS.txt)
           cat release-asset/SHA256SUMS.txt
 
-      - name: Publish official immutable v1.0.2 assets
+      - name: Replace assets in the existing v1.0.2 release (no duplicate release)
         if: steps.preflight.outputs.publish == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -68,12 +74,27 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gh release create v1.0.2 \
+          # Keep both public filenames and their URLs, while updating the
+          # checksums and release notes. Never create an additional v1.0.2 tag.
+          gh release upload v1.0.2 \
             release-asset/SideDock-Setup-1.0.2.exe \
             release-asset/SHA256SUMS.txt \
-            --repo "$GITHUB_REPOSITORY" \
-            --target "$TESTED_SHA" \
-            --title "SideDock v1.0.2 — Multitasking stability" \
+            --clobber --repo "$GITHUB_REPOSITORY"
+          # The release source archive must match the published binary source.
+          gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/v1.0.2" \
+            -f sha="$TESTED_SHA" -F force=true >/dev/null
+          gh release edit v1.0.2 --repo "$GITHUB_REPOSITORY" \
+            --target "$TESTED_SHA" --latest \
             --notes-file docs/RELEASE_NOTES_v1.0.2.md
+
+          expected=$(sha256sum release-asset/SideDock-Setup-1.0.2.exe | cut -d' ' -f1)
+          actual=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/v1.0.2" \
+            --jq '.assets[] | select(.name == "SideDock-Setup-1.0.2.exe") | .digest')
+          count=$(gh release view v1.0.2 --repo "$GITHUB_REPOSITORY" \
+            --json assets --jq '.assets | length')
+          tag_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v1.0.2" --jq '.object.sha')
+          test "$actual" = "sha256:$expected"
+          test "$count" -eq 2
+          test "$tag_sha" = "$TESTED_SHA"
           gh release view v1.0.2 --repo "$GITHUB_REPOSITORY" \
             --json url,tagName,isDraft,isPrerelease,assets
