@@ -66,7 +66,7 @@ from sidedock.widgets import (
 )
 from sidedock.windowing import (
     edge_available, is_topmost, pointer_hits_dock, raise_without_activation,
-    restore_window_without_activation, set_no_activate,
+    restore_window_without_activation, set_no_activate, wake_existing_instance,
 )
 
 user32 = ctypes.windll.user32
@@ -177,6 +177,7 @@ class SideDock(QWidget):
         )
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_ShowWithoutActivating)
+        self.setWindowTitle("SideDock")
         self.setAcceptDrops(True)
         self.setMinimumSize(300, 490)
         self.setMaximumSize(560, 820)
@@ -1514,6 +1515,8 @@ def main():
     lock = QLockFile(str(data_dir / "instance.lock"))
     lock.setStaleLockTime(0)
     if not lock.tryLock(0):
+        if wake_existing_instance():
+            return
         QMessageBox.information(None, "SideDock", "SideDock is already running or its data directory is locked.")
         return
     finish_diagnostics = start_diagnostics(data_dir, __version__)
