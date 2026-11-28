@@ -47,6 +47,37 @@ The installer offers **Start with Windows**, selected by default. SideDock regis
 
 Use the **SideDock system tray menu → Start with Windows** to enable/disable it. If you previously used a portable version, quit the old SideDock and disable its old startup entry before switching to the installer. A single-instance lock prevents the same data store being opened by two instances.
 
+### Startup and Windows desktop recovery (refreshed v1.0.2)
+
+The v1.0.2 installer registers an optional **per-user Windows sign-in** startup
+entry; it does not launch before sign-in, bypass Windows Startup Apps policies,
+or guarantee the same delay on every computer. The dock should return
+automatically without double-clicking the shortcut if startup is enabled.
+
+- Open the SideDock tray menu and check **Start with Windows**. If disabled in
+  Windows **Task Manager → Startup apps** (or **Settings → Apps → Startup**),
+  enable it there too. Do not use Task Scheduler to bypass a user opt-out.
+- For the installed version, the following PowerShell/Command Prompt query
+  should point to your installed SideDock.exe:
+  `reg query "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v SideDock`
+  (A missing value is expected if startup was deliberately disabled.)
+- On the Windows desktop, hover at the selected left or right edge even after
+  **Win+D**, **Win+M**, Alt+Tab, or closing a browser window. The refreshed
+  build retries a hidden/demoted window without taking foreground keyboard focus.
+- If Windows already has a SideDock process running, a second shortcut launch
+  attempts to reveal that existing instance instead of making a duplicate.
+  If it remains inaccessible, check the tray and the local operational log at
+  `%USERPROFILE%\SideDockData\sidedock.log` (it excludes clipboard/note text).
+- When reporting startup issues, supply OS edition/build, monitor and scaling
+  setup, whether Startup Apps is enabled, sign-in-to-edge delay, reproduction
+  steps, and the installer hash. Avoid sharing credentials or private clipboard
+  content.
+
+See the [detailed v1.0.2 reliability acceptance matrix](V1_0_2_RELIABILITY_ACCEPTANCE.md).
+If you previously installed an early build of v1.0.2, **redownload the same
+v1.0.2 URL** and verify the current checksum asset before upgrading; the
+download link remains unchanged while the installer bytes have been refreshed.
+
 ## D. Install from Python source (developers)
 
 For developers only; normal Windows users should use section A.
