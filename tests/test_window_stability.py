@@ -115,6 +115,37 @@ class DockStabilityTests(unittest.TestCase):
         self.dock.check_edge_hover()
         self.assertTrue(self.dock.is_expanded)
 
+    def test_watchdog_restores_hidden_dock_after_show_desktop(self):
+        self.assertTrue(self.dock.visibility_watch.isActive())
+        self.dock.hide()
+        self.assertFalse(self.dock.isVisible())
+        self.assertFalse(self.dock.edge_watch.isActive())
+        # A real Show Desktop can omit a later Qt enter event.
+        QTest.qWait(1050)
+        self.assertTrue(self.dock.isVisible())
+        self.assertFalse(self.dock.isMinimized())
+        self.assertTrue(self.dock.edge_watch.isActive())
+
+    def test_fullscreen_or_overlay_must_not_be_reopened_by_watchdog(self):
+        self.dock.hide()
+        self.available.return_value = False
+        self.dock.ensure_dock_accessible()
+        self.assertFalse(self.dock.isVisible())
+        self.available.return_value = True
+        self.dock._region_pending = True
+        self.dock.ensure_dock_accessible()
+        self.assertFalse(self.dock.isVisible())
+        self.dock._region_pending = False
+        self.dock.ensure_dock_accessible()
+        self.assertTrue(self.dock.isVisible())
+
+    def test_watchdog_rearms_polling_after_qt_hide_event(self):
+        self.dock.hide()
+        self.assertFalse(self.dock.edge_watch.isActive())
+        self.dock.ensure_dock_accessible()
+        self.assertTrue(self.dock.edge_watch.isActive())
+        self.assertTrue(self.dock.visibility_watch.isActive())
+
     def test_notes_restore_non_activation_and_collapse_watch(self):
         self.dock.open_note_editor("disposable note")
         self.assertTrue(self.dock._editing)
@@ -200,6 +231,40 @@ class EdgeGuardTests(unittest.TestCase):
         self.api.GetForegroundWindow.return_value = None
         self.assertFalse(windowing.edge_available(10, polling=True))
         self.assertTrue(windowing.edge_available(10))
+
+    def test_explorer_desktop_is_not_mistaken_for_fullscreen_application(self):
+        self.api.GetShellWindow.return_value = 20
+        self.assertTrue(windowing.edge_available(10, polling=True))
+        self.api.GetShellWindow.return_value = 50
+
+        def get_class(_hwnd, buffer, _length):
+            buffer.value = "WorkerW"
+            return len(buffer.value)
+
+        self.api.GetClassNameW.side_effect = get_class
+
+        def get_pid(_hwnd, output):
+            output._obj.value = 900
+            return 1
+
+        self.api.GetWindowThreadProcessId.side_effect = get_pid
+        self.assertTrue(windowing.edge_available(10, polling=True))
+        self.api.GetWindowThreadProcessId.side_effect = (
+            lambda hwnd, output: setattr(output._obj, "value", 900 if hwnd == 50 else 901) or 1
+        )
+        self.assertFalse(windowing.edge_available(10, polling=True))
+
+    def test_restore_native_window_without_activating_it(self):
+        self.api.IsWindow.return_value = True
+        self.api.IsIconic.return_value = True
+        self.api.IsWindowVisible.return_value = False
+        self.assertTrue(windowing.restore_window_without_activation(42))
+        self.api.ShowWindowAsync.assert_called_once_with(42, windowing.SW_SHOWNOACTIVATE)
+        self.api.IsIconic.return_value = False
+        self.api.IsWindowVisible.return_value = True
+        self.assertFalse(windowing.restore_window_without_activation(42))
+        self.api.IsWindow.return_value = False
+        self.assertFalse(windowing.restore_window_without_activation(42))
 
     def test_hit_diagnostics_distinguish_dock_children_from_obstruction(self):
         self.api.WindowFromPoint.return_value = 11
