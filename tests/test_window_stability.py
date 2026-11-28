@@ -169,6 +169,32 @@ class DockStabilityTests(unittest.TestCase):
         self.assertTrue(user32.GetWindowLongW(hwnd, windowing.GWL_EXSTYLE) & windowing.WS_EX_NOACTIVATE)
         self.assertEqual(user32.GetForegroundWindow(), foreground)
 
+    def test_native_hidden_window_recovers_without_focus_change(self):
+        if self.app.platformName() != "windows":
+            self.skipTest("requires native Windows Qt platform")
+        hwnd = int(self.dock.winId())
+        before = windowing.user32.GetForegroundWindow()
+        self.dock.hide()
+        self.assertFalse(windowing.user32.IsWindowVisible(hwnd))
+        self.dock.ensure_dock_accessible()
+        QTest.qWait(100)
+        self.assertTrue(windowing.user32.IsWindowVisible(hwnd))
+        self.assertTrue(self.dock.edge_watch.isActive())
+        self.assertEqual(windowing.user32.GetForegroundWindow(), before)
+
+    def test_native_minimized_window_recovers_without_focus_change(self):
+        if self.app.platformName() != "windows":
+            self.skipTest("requires native Windows Qt platform")
+        hwnd = int(self.dock.winId())
+        self.dock.showMinimized()
+        QTest.qWait(60)
+        before = windowing.user32.GetForegroundWindow()
+        self.dock.ensure_dock_accessible()
+        QTest.qWait(160)
+        self.assertFalse(windowing.user32.IsIconic(hwnd))
+        self.assertTrue(windowing.user32.IsWindowVisible(hwnd))
+        self.assertEqual(windowing.user32.GetForegroundWindow(), before)
+
     def test_log_redacts_exception_details_but_keeps_stack_and_shutdown(self):
         finish = start_diagnostics(self.dock.data_dir, "test")
         self.assertIsNotNone(finish)
