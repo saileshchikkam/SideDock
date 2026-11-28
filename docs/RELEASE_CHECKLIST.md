@@ -1,13 +1,15 @@
 # SideDock Windows release acceptance checklist
 
-## v1.0.2 candidate gates
+## v1.0.2 — published stable release (2026-11-28)
 
-- [ ] Review the stabilization pull request and its Windows build, source and packaged OCR checks, installer smoke test and SHA-256.
-- [ ] Reproduce the original failure with the reported apps and layouts. Retest the same steps with the candidate on an interactive Windows desktop.
-- [ ] Verify focus stays with the active app during edge reveal after Snap, Alt+Tab and taskbar switching. Exercise left and right edges, multiple monitors, DPI changes and fullscreen.
-- [ ] Upgrade an isolated v1.0.1 installation with sample history, favorites, notes and settings. Verify clipboard and Quick-Paste behavior, startup, single-instance handling and data retention on uninstall.
-- [ ] Complete a long-running desktop soak and review `SideDockData/sidedock.log` for heartbeat gaps, startup/shutdown and native errors.
-- [ ] Publish only after the candidate passes these gates. Keep the v1.0.1 GitHub Release available.
+- [x] [Stabilization PR #3](https://github.com/saileshchikkam/SideDock/pull/3) merged to `main` at commit `f900c7ce686d7054b12b08f2bee5dc5b8566287f`.
+- [x] Exact merged-main [Windows CI run 46122217681](https://github.com/saileshchikkam/SideDock/actions/runs/46122217681) passed: 53 automated unit tests (one offscreen-only skip), the separately executed **native Windows topmost/no-focus regression**, source and packaged offline OCR, executable and installer smoke checks.
+- [x] Isolated v1.0.1 → v1.0.2 upgrade regression passed, verifying disposable history, notes, settings, saved files, startup registry and uninstall data preservation.
+- [x] [Publication workflow 46122492238](https://github.com/saileshchikkam/SideDock/actions/runs/46122492238) succeeded and created the [public stable v1.0.2 GitHub Release](https://github.com/saileshchikkam/SideDock/releases/tag/v1.0.2). GitHub marks it latest, not draft or prerelease.
+- [x] Release includes `SideDock-Setup-1.0.2.exe` and `SHA256SUMS.txt`; the exact installer SHA-256 matches the successful main build and publishing run: `f44e9d1cb3905e765f56a3ce307bc5d15ce60ca9cc855f78b1e2301521a46501`.
+- [x] Project README and installation guide point to v1.0.2; [GitHub profile README PR #1](https://github.com/saileshchikkam/saileshchikkam/pull/1) was merged with matching download buttons.
+- [x] **Maintainer-reported desktop acceptance:** on 2026-11-28 the maintainer stated that they checked everything and authorized public release. This is **self-reported acceptance**; interactive desktop gestures were not independently executed through GitHub Actions or this audit. Individual OS builds, Snap/Alt+Tab captures, mixed-DPI monitor configurations and soak logs were not furnished for independent certification. Continue to collect these as ongoing compatibility evidence.
+- [x] Preserve older v1.0.0 and v1.0.1 releases as historical downloads. Only v1.0.2 is linked as **current/latest**; the v1.0.1 installer remains an input to upgrade regression testing.
 
 ## v1.0.1 public release evidence
 
