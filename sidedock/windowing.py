@@ -16,6 +16,7 @@ HWND_TOPMOST = -1
 SWP_NOSIZE = 0x0001
 SWP_NOMOVE = 0x0002
 SWP_NOACTIVATE = 0x0010
+SW_SHOWNOACTIVATE = 4
 MONITOR_DEFAULTTONULL = 0
 
 
@@ -29,6 +30,21 @@ class MonitorInfo(ctypes.Structure):
 
 
 user32.GetForegroundWindow.restype = wintypes.HWND
+user32.GetShellWindow.restype = wintypes.HWND
+user32.GetClassNameW.argtypes = [wintypes.HWND, wintypes.LPWSTR, ctypes.c_int]
+user32.GetClassNameW.restype = ctypes.c_int
+user32.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
+user32.GetWindowThreadProcessId.restype = wintypes.DWORD
+user32.IsWindow.argtypes = [wintypes.HWND]
+user32.IsWindow.restype = wintypes.BOOL
+user32.IsWindowVisible.argtypes = [wintypes.HWND]
+user32.IsWindowVisible.restype = wintypes.BOOL
+user32.IsIconic.argtypes = [wintypes.HWND]
+user32.IsIconic.restype = wintypes.BOOL
+user32.ShowWindowAsync.argtypes = [wintypes.HWND, ctypes.c_int]
+user32.ShowWindowAsync.restype = wintypes.BOOL
+user32.FindWindowW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR]
+user32.FindWindowW.restype = wintypes.HWND
 user32.GetCursorPos.argtypes = [ctypes.POINTER(wintypes.POINT)]
 user32.GetCursorPos.restype = wintypes.BOOL
 user32.WindowFromPoint.argtypes = [wintypes.POINT]
@@ -82,6 +98,52 @@ def raise_without_activation(hwnd):
         log.warning("SetWindowPos failed code=%s", ctypes.get_last_error())
 
 
+def is_shell_foreground(hwnd):
+    """Allow edge reveal on the real Explorer desktop, not fullscreen games.
+
+    Win+D can foreground Progman/WorkerW. Their fullscreen rectangle
+    must not be mistaken for an exclusive fullscreen application.
+    Match the actual shell PID to avoid trusting a spoofed class name.
+    """
+    shell = user32.GetShellWindow()
+    if not hwnd or not shell:
+        return False
+    if hwnd == shell:
+        return True
+    classname = ctypes.create_unicode_buffer(96)
+    if not user32.GetClassNameW(hwnd, classname, len(classname)):
+        return False
+    if classname.value not in ("Progman", "WorkerW", "Shell_TrayWnd"):
+        return False
+    shell_pid = wintypes.DWORD()
+    foreground_pid = wintypes.DWORD()
+    user32.GetWindowThreadProcessId(shell, ctypes.byref(shell_pid))
+    user32.GetWindowThreadProcessId(hwnd, ctypes.byref(foreground_pid))
+    return bool(shell_pid.value and shell_pid.value == foreground_pid.value)
+
+
+def restore_window_without_activation(hwnd):
+    """Undo an Explorer Show Desktop/minimize without taking keyboard focus."""
+    if not user32.IsWindow(hwnd):
+        return False
+    if not user32.IsIconic(hwnd) and user32.IsWindowVisible(hwnd):
+        return False
+    # ShowWindowAsync's return value reports previous visibility, not success.
+    user32.ShowWindowAsync(hwnd, SW_SHOWNOACTIVATE)
+    log.info("recovered hidden or minimized dock")
+    return True
+
+
+def wake_existing_instance():
+    """Let a second launch make a running dock reachable instead of a lock popup."""
+    hwnd = user32.FindWindowW(None, "SideDock")
+    if not hwnd or not user32.IsWindow(hwnd):
+        return False
+    user32.ShowWindowAsync(hwnd, SW_SHOWNOACTIVATE)
+    raise_without_activation(hwnd)
+    return True
+
+
 def pointer_hits_dock(hwnd):
     cursor = wintypes.POINT()
     if not user32.GetCursorPos(ctypes.byref(cursor)):
@@ -100,7 +162,7 @@ def edge_available(hwnd, *, polling=False):
     if polling and any(user32.GetAsyncKeyState(button) & 0x8000 for button in (1, 2, 4)):
         return False
     foreground = user32.GetForegroundWindow()
-    if not foreground or foreground == hwnd:
+    if not foreground or foreground == hwnd or is_shell_foreground(foreground):
         return True
     style = user32.GetWindowLongW(foreground, GWL_STYLE)
     if user32.IsZoomed(foreground) and style & WS_CAPTION == WS_CAPTION:

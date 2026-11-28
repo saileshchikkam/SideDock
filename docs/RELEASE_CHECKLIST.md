@@ -1,5 +1,21 @@
 # SideDock Windows release acceptance checklist
 
+## Post-launch reliability audit for the existing v1.0.2 release
+
+On 28 November 2026 the maintainer reported failures to reveal SideDock after Windows
+sign-in, Win+D and rapid application switching. The earlier maintainer acceptance
+statement does **not** certify these reported cases. A targeted hotfix is being
+validated in [PR #4](https://github.com/saileshchikkam/SideDock/pull/4).
+
+The [detailed acceptance matrix](V1_0_2_RELIABILITY_ACCEPTANCE.md) has automated
+and hardware-dependent gates. **GitHub Actions cannot perform an actual Windows
+reboot and desktop sign-in on the maintainer's PC.** Record such tests as unverified
+unless results are supplied. Do not claim broad platform certification.
+
+The installer refresh reuses the existing `v1.0.2` tag and filenames; published
+installer hashes must match the specific build. Older v1.0.0 and v1.0.1
+releases stay available only as historical versions.
+
 ## v1.0.2 — published stable release (2026-11-28)
 
 - [x] [Stabilization PR #3](https://github.com/saileshchikkam/SideDock/pull/3) merged to `main` at commit `f900c7ce686d7054b12b08f2bee5dc5b8566287f`.

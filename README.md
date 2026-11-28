@@ -36,6 +36,9 @@
 > [!IMPORTANT]
 > **SideDock v1.0.2 — public release.** Download the Windows installer directly from the [official GitHub Release](https://github.com/saileshchikkam/SideDock/releases/tag/v1.0.2); **no GitHub login or Actions ZIP is required**. The installer is **unsigned**, and Windows may show Microsoft Defender SmartScreen. Check the [safe installation instructions](docs/INSTALLATION.md) before running it.
 
+> **Windows startup and desktop reliability:** SideDock is designed to return automatically at sign-in when **Start with Windows** is enabled, and the refreshed v1.0.2 build improves recovery after Win+D, minimized windows, and rapid app switching without taking keyboard focus. See the [startup troubleshooting guide](docs/INSTALLATION.md#startup-and-windows-desktop-recovery-refreshed-v102) and [full acceptance matrix](docs/V1_0_2_RELIABILITY_ACCEPTANCE.md). Windows may delay third-party startup apps; reboot and multi-monitor behavior still depends on your device.
+
+
 <p align="center">
   <img src="docs/assets/product-preview.svg" width="1100" alt="Illustrated SideDock product concept: edge dock with searchable note and OCR text cards">
 </p>

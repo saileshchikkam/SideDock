@@ -30,6 +30,16 @@ class SingleInstallerTests(unittest.TestCase):
         self.assertIn("uninstaller left an obsolete startup entry", source)
         self.assertIn('runtime / "ocr" / "tesseract.exe"', source)
 
+    def test_revised_v1_0_2_release_reuses_existing_tag_and_filename(self):
+        publisher = (ROOT / ".github/workflows/publish-v1.0.2.yml").read_text(encoding="utf-8")
+        self.assertIn("[republish-v1.0.2]", publisher)
+        self.assertIn("gh release upload v1.0.2", publisher)
+        self.assertIn("--clobber", publisher)
+        self.assertIn("SHA256SUMS.txt", publisher)
+        self.assertNotIn("gh release create v1.0.2", publisher)
+        self.assertIn("test \"$count\" -eq 2", publisher)
+        self.assertIn("test \"$tag_sha\" = \"$TESTED_SHA\"", publisher)
+
     def test_fast_start_runtime_is_installed_not_extracted_on_every_login(self):
         builder = (ROOT / "scripts/build_windows.py").read_text(encoding="utf-8")
         installer = (ROOT / "installer/SideDock.iss").read_text(encoding="utf-8")

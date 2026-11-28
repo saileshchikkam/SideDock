@@ -6,6 +6,15 @@
 - Refreshes dock placement and opacity after monitor work-area and DPI changes. Keeps edge polling suspended during region OCR and when Windows input is unavailable.
 - Adds bounded local lifecycle and health logs in `SideDockData`. Logs record timing, geometry and window state. Clipboard contents and note text are excluded.
 
+### Refreshed Windows installer (same v1.0.2 release)
+
+- Corrects Explorer desktop foreground handling after Win+D, Win+M and rapid window switches.
+- Recovers hidden or minimized windows with a nonactivating visibility watchdog; does not interrupt actual fullscreen activity.
+- Defers initial saved-card layout for faster visibility at Windows sign-in and allows a second shortcut launch to wake the existing dock.
+- Uses parent-owned Qt timers to avoid callbacks executing after dock child widgets are destroyed.
+- Adds real-Win32 focus tests, unchanged-version installer upgrade tests, an extended desktop acceptance checklist, and a gated in-place public release refresh.
+- **No new version or download filename.** Users of the original v1.0.2 installer should redownload after the refresh and verify the current checksum.
+
 ## 1.0.1 — Rapid-copy Quick-Paste correction (2026-11-27)
 
 - Restore the **one-time** recent-copies popup only for a *fresh burst* of two or more consecutive copies (at most 20 seconds between copies, paste within 45 seconds of the last copy).
