@@ -83,11 +83,20 @@ jobs:
           # The release source archive must match the published binary source.
           gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/v1.0.2" \
             -f sha="$TESTED_SHA" -F force=true >/dev/null
+          expected=$(sha256sum release-asset/SideDock-Setup-1.0.2.exe | cut -d' ' -f1)
+          cp docs/RELEASE_NOTES_v1.0.2.md release-asset/RELEASE_NOTES.md
+          {
+            echo
+            echo "### Verified revised-build provenance"
+            echo
+            echo "- Windows CI: https://github.com/$GITHUB_REPOSITORY/actions/runs/${{ github.event.workflow_run.id }}"
+            echo "- Exact tested source commit: \`$TESTED_SHA\`"
+            echo "- Current installer SHA-256: \`$expected\`"
+          } >> release-asset/RELEASE_NOTES.md
           gh release edit v1.0.2 --repo "$GITHUB_REPOSITORY" \
             --target "$TESTED_SHA" --latest \
-            --notes-file docs/RELEASE_NOTES_v1.0.2.md
+            --notes-file release-asset/RELEASE_NOTES.md
 
-          expected=$(sha256sum release-asset/SideDock-Setup-1.0.2.exe | cut -d' ' -f1)
           actual=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/v1.0.2" \
             --jq '.assets[] | select(.name == "SideDock-Setup-1.0.2.exe") | .digest')
           count=$(gh release view v1.0.2 --repo "$GITHUB_REPOSITORY" \
