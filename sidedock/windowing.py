@@ -43,6 +43,8 @@ user32.IsIconic.argtypes = [wintypes.HWND]
 user32.IsIconic.restype = wintypes.BOOL
 user32.ShowWindowAsync.argtypes = [wintypes.HWND, ctypes.c_int]
 user32.ShowWindowAsync.restype = wintypes.BOOL
+user32.FindWindowW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR]
+user32.FindWindowW.restype = wintypes.HWND
 user32.GetCursorPos.argtypes = [ctypes.POINTER(wintypes.POINT)]
 user32.GetCursorPos.restype = wintypes.BOOL
 user32.WindowFromPoint.argtypes = [wintypes.POINT]
@@ -129,6 +131,16 @@ def restore_window_without_activation(hwnd):
     # ShowWindowAsync's return value reports previous visibility, not success.
     user32.ShowWindowAsync(hwnd, SW_SHOWNOACTIVATE)
     log.info("recovered hidden or minimized dock")
+    return True
+
+
+def wake_existing_instance():
+    """Let a second launch make a running dock reachable instead of a lock popup."""
+    hwnd = user32.FindWindowW(None, "SideDock")
+    if not hwnd or not user32.IsWindow(hwnd):
+        return False
+    user32.ShowWindowAsync(hwnd, SW_SHOWNOACTIVATE)
+    raise_without_activation(hwnd)
     return True
 
 
