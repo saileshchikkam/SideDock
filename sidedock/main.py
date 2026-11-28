@@ -65,7 +65,8 @@ from sidedock.widgets import (
     SettingsPanel,
 )
 from sidedock.windowing import (
-    edge_available, is_topmost, pointer_hits_dock, raise_without_activation, set_no_activate,
+    edge_available, is_topmost, pointer_hits_dock, raise_without_activation,
+    restore_window_without_activation, set_no_activate,
 )
 
 user32 = ctypes.windll.user32
@@ -216,6 +217,11 @@ class SideDock(QWidget):
         self.edge_watch = QTimer(self)
         self.edge_watch.setInterval(100)
         self.edge_watch.timeout.connect(self.check_edge_hover)
+        # Independent of Qt hide/enter events: Win+D and Explorer transitions
+        # can hide the tool window without delivering another enter event.
+        self.visibility_watch = QTimer(self)
+        self.visibility_watch.setInterval(850)
+        self.visibility_watch.timeout.connect(self.ensure_dock_accessible)
 
         # 5. Rounded glass container
         self.container = QFrame(self)
@@ -372,7 +378,9 @@ class SideDock(QWidget):
         layout.addLayout(self.bottom_bar)
 
         self.apply_theme()
-        self.refresh_list()
+        self.history_status.setText("RESTORING SAVED ITEMS…")
+        # Show the narrow edge immediately on sign-in before rebuilding cards.
+        QTimer.singleShot(180, self.refresh_list)
 
         # 6. Reliable Windows clipboard watcher
         self.clipboard = QApplication.clipboard()
@@ -405,7 +413,42 @@ class SideDock(QWidget):
         self._health_sample = time.monotonic(), time.process_time()
         self.health_timer.timeout.connect(self.log_heartbeat)
         self.health_timer.start(60_000)
+        self.visibility_watch.start()
         self.log_dock_state("initialized")
+
+    def ensure_dock_accessible(self):
+        """Recover a hidden/minimized or demoted dock without foreground focus.
+
+        Run even if a Show Desktop transition generated Qt hideEvent and stopped
+        the hover watcher. Don't fight a real fullscreen app or OCR selection.
+        """
+        if (
+            self.monitor is None or self._region_pending or self._region_overlay is not None
+            or self._editing or self._is_dragging_out or self._is_dragging_dock
+        ):
+            return
+        hwnd = int(self.winId())
+        if not edge_available(hwnd):
+            return
+        recovered = False
+        if not self.isVisible():
+            self.show()
+            recovered = True
+        if restore_window_without_activation(hwnd):
+            recovered = True
+        if self.isMinimized():
+            self.setWindowState(self.windowState() & ~Qt.WindowMinimized)
+            self.show()
+            recovered = True
+        if not is_topmost(hwnd):
+            raise_without_activation(hwnd)
+            recovered = True
+        if not self.is_expanded and not self.edge_watch.isActive():
+            self.edge_watch.start()
+            recovered = True
+        if recovered:
+            self.on_monitor_geometry_changed()
+            self.log_dock_state("accessibility recovery")
 
     def log_heartbeat(self):
         previous_wall, previous_cpu = self._health_sample
@@ -1483,6 +1526,8 @@ def main():
             QMessageBox.critical(None, "SideDock", str(exc))
             raise SystemExit(exit_code) from None
         dock.show()
+        # Initial reconciliation handles Explorer work-area changes at logon.
+        QTimer.singleShot(250, dock.ensure_dock_accessible)
         exit_code = app.exec()
     except Exception:
         sys.excepthook(*sys.exc_info())
